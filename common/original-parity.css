@@ -1,0 +1,139 @@
+/* Measured from the original mini-program at 414 × 782 logical pixels.
+   Keep current branding and catalogue data; these rules restore its layout. */
+/* #ifdef H5 */
+html,body,uni-page-body{scrollbar-width:none}
+::-webkit-scrollbar{width:0;height:0}
+/* #endif */
+.nav{
+  height:var(--nav-height,64px)!important;
+  min-height:var(--nav-height,64px)!important;
+  padding-top:var(--nav-inset,20px)!important;
+  font-size:26rpx!important;
+}
+.nav .back,.mall-home,.nav .capsule{
+  top:var(--nav-center,42px)!important;
+}
+.nav>text:not(.back){max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nav .capsule{transform:translateY(-50%)!important}
+.product-cover-wrap{min-height:500rpx!important}
+.product-cover{height:500rpx!important;min-height:500rpx!important}
+.detail-art-wrap{padding:0 10rpx!important}
+.detail-art{border-radius:20rpx!important}
+.order-background{background:linear-gradient(#966bc5 80rpx,#f5e5fa 390rpx,#f7f7f7 600rpx)}
+.order-background .nav{background:transparent}
+.tabitem{font-weight:600;padding-top:20rpx}
+.tabitem image{width:47rpx;height:51rpx;margin-bottom:3rpx}
+.tabbar{background:rgba(255,255,255,.94)}
+
+.hero-top-art{height:calc(100vw * 286 / 414)!important}
+.hero-middle-slot{height:calc(100vw * 215 / 414)}
+.hero-bottom-art,.hero-bottom-art>image{height:calc(100vw * 214 / 414)!important}
+.hero-wrap .welcome-live{font-weight:400;background-size:104% 100%!important}
+.hero-wrap .welcome-live text{font-size:22rpx;letter-spacing:10rpx;color:#32382a!important}
+.shortcuts{padding-bottom:8rpx}
+.entry-grid{gap:42rpx}
+.entry-grid image{display:block}
+.entry-left{width:46.8%}
+.entry-right{gap:18rpx}
+.alliance-entry{display:block;height:calc((100vw - 56rpx) * 102 / 380)!important;margin:24rpx 28rpx 0}
+.alliance-entry+.store-card{margin-top:16rpx}
+
+.mall-nav .capsule{display:flex}
+.mall-home image{width:38rpx;height:38rpx;display:block}
+.mall-shell{min-height:calc(100vh - 64px - 118rpx);padding-top:10rpx;padding-bottom:0}
+.mall-categories{width:180rpx;border:0;padding-top:0}
+.mall-category{border:0;padding:32rpx 28rpx!important}
+.mall-category.active{background:#fff}
+.mall-content{padding:0 28rpx 28rpx 22rpx}
+.mall-banner{height:calc((100vw - 230rpx) * 221 / 414);margin-bottom:20rpx}
+.mall-heading{font-size:30rpx;padding-bottom:12rpx;margin-bottom:14rpx}
+.mall-product-row{border:0;gap:22rpx;min-height:168rpx;padding:14rpx 0}
+.mall-product-thumb{width:180rpx;height:140rpx}
+.mall-product-main{padding-top:2rpx;padding-bottom:32rpx}
+.mall-product-name{font-size:28rpx!important}
+
+.discover-head{
+  background:linear-gradient(115deg,#ca90db,#a371c4) 0 0/100% 338rpx no-repeat;
+}
+.discover-head .points-banner{display:block}
+.discover-links{margin:58rpx 50rpx 0;font-size:29rpx}
+.discover-icon{width:122rpx;height:122rpx;margin-bottom:20rpx}
+.page-discover>.empty{margin-top:118rpx}
+
+.page-mine{background:linear-gradient(180deg,transparent,#f9f7f9 820rpx),linear-gradient(120deg,#ecd8fd,#fff7e9)}
+.page-mine .profile-head .profile-avatar{width:128rpx!important;height:128rpx!important;border:0!important}
+.page-mine .profile-head .title{font-size:34rpx!important;font-weight:700!important}
+.mine-stats .stat,.points-stats .stat{padding:32rpx 38rpx}
+.stat-copy{padding-right:66rpx;overflow-wrap:anywhere}
+.stat-icon{width:100rpx;height:100rpx;right:22rpx;top:24rpx}
+.pool-number{gap:28rpx;margin-top:38rpx}
+.pool-number image{width:88rpx;height:69rpx}
+.page-points .purple-top{height:338rpx;padding:88rpx 0 132rpx!important}
+.page-addresses .empty{margin-top:60rpx}
+.page-addresses .bottom-actions{background:transparent;border:0;padding-bottom:36rpx}
+.page-about .about-logo{width:300rpx;height:300rpx;background:#fff;margin:100rpx auto 40rpx}
+.page-about .about-title{margin-bottom:92rpx}
+.page-login .login-logo{width:236rpx;height:236rpx;background:#fff;border-radius:30rpx}
+.page-login .login-body .title{margin-bottom:72rpx}
+.sign-top{position:relative}
+.sign-top .rules-entry{top:24rpx;right:28rpx;color:#fff}
+.points-card{padding-bottom:30rpx}
+.points-card .between{font-size:26rpx}
+.points-card .pill{margin:0}
+.sign-streak{text-align:center}
+.sign-streak .link{font-weight:600;color:#cc36ed}
+.points-card .days{margin-top:28rpx}
+.points-card .timeline{margin-top:30rpx}
+
+.gift-page-intro{padding:56rpx 28rpx 0}
+.gift-selection-hint{color:#999;font-size:29rpx;font-weight:400}
+.page-gifts>.empty{margin-top:65rpx}
+.gift-selection-footer{padding:16rpx 28rpx calc(30rpx + var(--safe-bottom));border:0;background:transparent}
+.gift-selection-footer .primary{height:82rpx;min-height:82rpx;font-size:30rpx}
+.page-gifts .grid{margin-top:38rpx}
+.page-gifts .gift-shortage{margin-top:28rpx}
+.page-appointments .bottom-actions .pill{background:linear-gradient(105deg,#cc8ddc,#9b6bc6);border:1px solid #af67de}
+
+/* Store contact links remain interactive within their own store card. */
+.page-stores .store-page-copy{pointer-events:auto}
+.page-stores{height:auto;min-height:100vh;overflow-y:visible!important}
+.page-stores .store-page-card{margin-top:28rpx!important;padding:20rpx}
+.page-stores .store-visual{border-radius:20rpx}
+.page-stores .store-visual>.wide-img{height:calc((100vw - 96rpx) * 1.20168)!important}
+.page-stores .store-page-copy{padding:20rpx 0 2rpx!important}
+.page-stores>.empty{margin-top:30rpx}
+
+.page-share>.share-page{
+  background:linear-gradient(#049bee 0,#394dcb calc(100vw * 570 / 414),#f7f7f7 calc(100vw * 590 / 414))!important;
+  padding-bottom:28rpx!important;
+}
+.share-hero-frame{padding-top:calc(100vw * 80 / 414)!important;background:#079bf0!important}
+/* The reference crop includes a scrollbar at its right edge. Keep it outside the artwork frame. */
+.share-hero-art{transform:scale(1.02);transform-origin:left top}
+.share-card-frame{width:calc(100% - 68rpx)!important;margin-top:0!important}
+.share-qr{left:29%!important;top:23%!important}
+/* 原版海报下没有按钮；为支持转发给好友和复制邀请码，保留 replica.css 中的操作按钮行。 */
+.share-empty{display:block!important}
+.vip-product-cover{margin:24rpx 24rpx 0;padding:36rpx 24rpx;text-align:center;background:#eee3f3;color:#5f3f73;border-radius:12rpx}.vip-product-cover image{width:104rpx;height:104rpx}.vip-product-cover view{font-size:40rpx;font-weight:600;margin:14rpx 0}.vip-product-cover text{font-size:25rpx;color:#80638e}.vip-activity-row{display:flex;align-items:center;gap:22rpx}.vip-activity-row image{width:96rpx;height:96rpx;flex-shrink:0}.vip-activity-row>view{flex:1}.vip-activity-row .description{margin:12rpx 0}.vip-activity-row>.link{font-size:25rpx;flex-shrink:0}.entitlement-row{display:flex;align-items:center;gap:20rpx;justify-content:space-between;padding:24rpx 0;border-bottom:1px solid #eee5f0;font-size:27rpx}.entitlement-row .muted{margin-top:12rpx;font-size:24rpx}.entitlement-row .pill{flex-shrink:0;margin:0}.package-entitlements .title{margin-bottom:10rpx}
+
+/* Clear account states and compact login layout on both short and tall screens. */
+.page-mine .vip-pool{height:auto;min-height:166rpx;padding:30rpx 28rpx;display:flex;align-items:center;justify-content:space-between;gap:18rpx}
+.pool-copy{font-size:30rpx;color:#4f3b5b}.pool-note{display:block;font-size:23rpx;color:#7c658a;margin-top:14rpx;line-height:1.5}
+.page-mine .pool-number{margin:0;gap:14rpx;font-size:26rpx;white-space:nowrap;color:#81569a}.page-mine .pool-number image{width:64rpx;height:52rpx;flex-shrink:0}
+.page-login{background:#faf8fc;padding-bottom:calc(32rpx + env(safe-area-inset-bottom))}
+.page-login .login-body{padding:110rpx 48rpx 32rpx;max-width:750rpx;margin:auto;text-align:center}
+.page-login .login-brand{margin-bottom:72rpx}.page-login .login-logo{width:390rpx;max-width:100%;height:114rpx;border-radius:0;background:transparent}
+.page-login .login-body .title{font-size:40rpx;line-height:1.4;margin:44rpx 0 16rpx;color:#302a35}
+.login-subtitle{color:#79727e;font-size:26rpx;line-height:1.6}.page-login .login-body .primary{margin:0;width:100%;height:88rpx;font-size:30rpx}
+.login-web-note{font-size:24rpx;color:#847b8c;margin-top:20rpx;line-height:1.5}
+.page-login .agreement{position:static;display:flex;align-items:flex-start;text-align:left;margin:28rpx 0 0;font-size:24rpx;line-height:1.8;color:#63596a}
+.agreement-toggle{background:transparent;width:70rpx;min-width:70rpx;height:70rpx;display:flex;align-items:center;justify-content:center;padding:0;margin:-12rpx 0 0 -12rpx}
+.page-login .agreement .check{width:30rpx;height:30rpx;border:2rpx solid #a98db9;border-radius:6rpx;background:transparent;margin:0;color:#fff;font-size:23rpx;line-height:26rpx}
+.page-login .agreement .check.on{background:#aa71c4;border-color:#aa71c4}.agreement-copy{flex:1}.agreement-note{font-size:23rpx;color:#948a9b;margin-top:6rpx}
+.page-login .login-skip{margin:36rpx auto 0;padding:16rpx 24rpx;background:transparent;color:#807486;font-size:26rpx;min-height:80rpx}
+@media(max-height:650px){.page-login .login-body{padding-top:50rpx}.page-login .login-brand{margin-bottom:44rpx}.page-login .login-body .title{margin-top:26rpx}}
+.page-login .agreement-toggle::after,.page-login .login-skip::after{border:0}
+
+/* Keep appointment feedback legible on small screens. */
+.page-booking .booking-time-notice{font-size:26rpx;line-height:1.6;color:#80618e;padding:20rpx 0}
+.page-about .about-logo{display:block;width:380rpx;height:160rpx;object-fit:contain;border-radius:20rpx}

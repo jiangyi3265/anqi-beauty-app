@@ -1,0 +1,10 @@
+<!doctype html><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:#fff;overflow:hidden}canvas{display:block}</style><canvas id="c"></canvas><script>
+const mode=new URLSearchParams(location.search).get('mode')||'hero';
+const img=new Image();
+img.src=mode==='hero'?'file:///G:/工作项目/安琪美容/安琪美容/source-assets/hero.png':'file:///G:/工作项目/安琪美容/安琪美容/source-assets/store.png';
+function isTitlePixel(r,g,b){const mx=Math.max(r,g,b),mn=Math.min(r,g,b),avg=(r+g+b)/3;return mx-mn<45&&avg>112;}
+function editTitle(ctx,w,h,box,fontSize,centerY){const im=ctx.getImageData(0,0,w,h),d=im.data,mask=new Uint8Array(w*h);const x0=box[0],y0=box[1],x1=box[2],y1=box[3];for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=(y*w+x)*4;if(isTitlePixel(d[i],d[i+1],d[i+2]))mask[y*w+x]=1}
+for(let pass=0;pass<80;pass++){const next=new Uint8ClampedArray(d);for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){if(!mask[y*w+x])continue;let sr=0,sg=0,sb=0,n=0;for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){if(!dx&&!dy)continue;const xx=x+dx,yy=y+dy;if(xx<0||yy<0||xx>=w||yy>=h||mask[yy*w+xx])continue;const j=(yy*w+xx)*4;sr+=d[j];sg+=d[j+1];sb+=d[j+2];n++}if(n){const i=(y*w+x)*4;next[i]=sr/n;next[i+1]=sg/n;next[i+2]=sb/n;next[i+3]=255}}d.set(next)}ctx.putImageData(im,0,0);
+ctx.save();ctx.textBaseline='middle';ctx.textAlign='left';ctx.font='bold '+fontSize+'px "STSong","SimSun","Songti SC",serif';ctx.fillStyle='#fff';ctx.shadowColor='rgba(40,75,35,.28)';ctx.shadowBlur=2;ctx.shadowOffsetY=2;const chars=[...'暨美丽'];const gap=fontSize*.02;let widths=chars.map(c=>ctx.measureText(c).width),total=widths.reduce((a,b)=>a+b,0)+gap*(chars.length-1),x=(w-total)/2;for(let i=0;i<chars.length;i++){ctx.fillText(chars[i],x,centerY);x+=widths[i]+gap}ctx.restore()}
+img.onload=()=>{const w=img.naturalWidth,h=mode==='hero'?285:img.naturalHeight;const c=document.getElementById('c');c.width=w;c.height=h;const ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);if(mode==='hero')editTitle(ctx,w,h,[32,106,382,187],68,147);else editTitle(ctx,w,h,[22,48,336,137],58,95);document.body.dataset.done='1'};
+</script>

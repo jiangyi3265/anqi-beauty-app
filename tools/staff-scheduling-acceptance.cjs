@@ -1,0 +1,61 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),net=require('node:net'),crypto=require('node:crypto');
+const {spawn}=require('node:child_process'),{once}=require('node:events');
+const seed=require('../server/seed.cjs');
+const root=path.resolve(__dirname,'..'),dir=fs.mkdtempSync(path.join(os.tmpdir(),'anqi-staff-')),file=path.join(dir,'db.json'),secret=crypto.randomBytes(24).toString('hex');
+let child,base;const passed=[];
+async function req(route,method='GET',data,token,expected=200,admin=false){const r=await fetch(base+route,{method,headers:{'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{}),...(admin?{'x-anqi-internal':secret}:{})},body:data===undefined?undefined:JSON.stringify(data)});const b=await r.json();assert.equal(r.status,expected,`${method} ${route}: ${JSON.stringify(b)}`);return b}
+const admin=(route,method='GET',body,status=200)=>req('/admin/'+route,method,body,null,status,true);
+async function start(){const socket=net.createServer().listen(0,'127.0.0.1');await once(socket,'listening');const port=socket.address().port;await new Promise(r=>socket.close(r));base=`http://127.0.0.1:${port}/api`;child=spawn(process.execPath,['server/index.cjs'],{cwd:root,env:{...process.env,HOST:'127.0.0.1',PORT:String(port),DATA_FILE:file,DB_NAME:process.env.STAFF_TEST_DB_NAME||'',DEMO_MODE:'false',NODE_ENV:'test',WECHAT_MOCK:'true',ADMIN_PASSWORD:secret,INTERNAL_SECRET:secret,PAYMENT_MODE:'off'},stdio:['ignore','ignore','pipe']});let errors='';child.stderr.on('data',b=>errors+=b);for(let i=0;i<100;i++){if(child.exitCode!==null)throw Error(errors);try{if((await fetch(base+'/health')).ok)return}catch{}await new Promise(r=>setTimeout(r,50))}throw Error(errors||'startup timeout')}
+async function stop(){if(child&&child.exitCode===null){const exit=once(child,'exit');child.kill();await exit}}
+(async()=>{
+  if(process.env.STAFF_TEST_DB_NAME&&!/^anqi_audit_[a-zA-Z0-9_]+$/.test(process.env.STAFF_TEST_DB_NAME))throw Error('MySQL tests require a dedicated anqi_audit_ database');
+  fs.writeFileSync(file,JSON.stringify(seed()));await start();
+  const bootstrap=await req('/bootstrap'),store=bootstrap.stores[0];
+  const date=new Date(Date.now()+8*3600000+86400000*5).toISOString().slice(0,10),date2=new Date(Date.now()+8*3600000+86400000*6).toISOString().slice(0,10);
+  await req('/admin/staff','GET',undefined,null,401);await req('/appointment-options','POST',{date},null,401);passed.push('staff and availability require authentication');
+  const alice=await admin('staff','POST',{name:'测试员工甲',phone:'13800000000',enabled:true}),bob=await admin('staff','POST',{name:'测试员工乙',enabled:true});
+  await admin('staff','POST',{name:'',enabled:true},400);await admin('staff','POST',{name:'无效',phone:'abc'},400);
+  await admin('config','PUT',{appointmentCapacity:3,appointmentTimes:'09:00,09:30,10:00,10:30,11:00,14:00'});
+  await admin('stores/'+store.id,'PUT',{schedulingEnabled:true,appointmentDurationMinutes:60});
+  await admin('stores/'+store.id,'PUT',{appointmentDurationMinutes:0},400);
+  const other=await admin('stores','POST',{name:'测试二店',contact:'测试',phone:'13800000000',address:'测试地址',image:store.image,enabled:true,schedulingEnabled:true});
+  const shift=await admin('shifts','POST',{staffId:alice.id,storeId:store.id,date,startTime:'09:00',endTime:'12:00',status:'working'});
+  await admin('shifts','POST',{staffId:alice.id,storeId:other.id,date,startTime:'10:00',endTime:'12:00',status:'working'},400);
+  await admin('shifts','POST',{staffId:bob.id,storeId:store.id,date:'2027-02-30',startTime:'09:00',endTime:'12:00',status:'working'},400);
+  await admin('shifts','POST',{staffId:bob.id,storeId:store.id,date,startTime:'12:00',endTime:'09:00',status:'working'},400);
+  await admin('shifts','POST',{staffId:bob.id,storeId:store.id,date,startTime:'09:00',endTime:'12:00',status:'leave'});
+  const before=(await admin('shifts')).length;
+  await admin('shifts/batch','POST',{staffId:alice.id,storeId:store.id,dates:[date2,date],startTime:'09:00',endTime:'12:00',status:'working'},400);
+  assert.equal((await admin('shifts')).length,before);passed.push('dates, cross-store overlaps, leave and batch rollback validated');
+  const trials=bootstrap.products.filter(p=>p.trial&&p.enabled).slice(0,3);
+  async function claim(code){const login=await req('/auth/wechat','POST',{code});const claim=await req('/claims','POST',{productIds:trials.map(p=>p.id),type:'trial'},login.token);return {token:login.token,source:{claimId:claim.id,productId:trials[0].id,storeId:store.id}}}
+  const one=await claim('staff-a-'+Date.now()),two=await claim('staff-b-'+Date.now());
+  const preview=await req('/appointment-options','POST',{...one.source,date},one.token);
+  assert.equal(preview.scheduled,true);assert.equal(preview.durationMinutes,60);
+  assert.deepEqual(preview.slots.find(s=>s.time==='09:00').staff,[{id:alice.id,name:'测试员工甲'}]);
+  assert.equal(preview.slots.find(s=>s.time==='14:00').remaining,0);assert.ok(!JSON.stringify(preview).includes('13800000000'));
+  await req('/appointment-options','POST',{...one.source,date},two.token,404);passed.push('availability respects leave, store, ownership and private employee details');
+  await req('/appointments','POST',{...one.source,date,time:'09:00',staffId:bob.id},one.token,400);
+  const results=await Promise.all([one,two].map(u=>fetch(base+'/appointments',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+u.token},body:JSON.stringify({...u.source,date,time:'09:00'})})));
+  assert.deepEqual(results.map(r=>r.status).sort(),[200,400]);const winnerIndex=results[0].status===200?0:1;const booked=await results[winnerIndex].json(),loser=winnerIndex===0?two:one;
+  assert.equal(booked.staffId,alice.id);assert.equal(booked.staff.name,'测试员工甲');
+  const after=await req('/appointment-options','POST',{...loser.source,date},loser.token);
+  assert.equal(after.slots.find(s=>s.time==='09:30').remaining,0);assert.equal(after.slots.find(s=>s.time==='10:00').remaining,1);
+  await req('/appointments','POST',{...loser.source,date,time:'09:30'},loser.token,400);passed.push('concurrent reservations and overlapping service durations cannot double-book');
+  await admin('staff/'+alice.id,'PUT',{enabled:false},400);
+  await admin('shifts/'+shift.id,'PUT',{status:'leave'},400);
+  await admin('shifts/'+shift.id,'DELETE',undefined,400);
+  assert.equal((await admin('shifts')).find(s=>s.id===shift.id).status,'working');
+  await admin('staff/'+alice.id,'PUT',{name:'测试员工甲新名字'});
+  assert.equal((await admin('appointments')).find(a=>a.id===booked.id).staff.name,'测试员工甲');passed.push('existing appointments protect shifts and retain employee snapshot');
+  await admin('appointments/'+booked.id,'PUT',{status:'cancelled'});
+  assert.equal((await req('/appointment-options','POST',{...loser.source,date},loser.token)).slots.find(s=>s.time==='09:00').remaining,1);
+  await admin('shifts/'+shift.id,'DELETE');await admin('staff/'+alice.id,'PUT',{enabled:false});passed.push('cancellation frees employee and permits future roster change');
+  await admin('stores/'+store.id,'PUT',{schedulingEnabled:false});
+  const legacy=await req('/appointments','POST',{...loser.source,date,time:'09:00'},loser.token);assert.equal(legacy.staffId,undefined);
+  await admin('stores/'+store.id,'PUT',{schedulingEnabled:true});
+  await admin('staff/'+alice.id,'PUT',{enabled:true});await admin('shifts','POST',{staffId:alice.id,storeId:store.id,date,startTime:'09:00',endTime:'12:00',status:'working'});
+  const third=await claim('staff-c-'+Date.now());assert.equal((await req('/appointment-options','POST',{...third.source,date},third.token)).slots.find(s=>s.time==='09:00').remaining,0);passed.push('legacy mode works and unassigned legacy bookings remain protected after activation');
+  await stop();await start();assert.equal((await admin('staff')).length,2);assert.ok((await admin('appointments')).some(a=>a.id===legacy.id));passed.push('staff, shifts and booking snapshots survive restart');
+  console.log(JSON.stringify({ok:true,checks:passed},null,2));
+})().catch(e=>{console.error(e.stack);process.exitCode=1}).finally(async()=>{await stop();fs.rmSync(dir,{recursive:true,force:true})});

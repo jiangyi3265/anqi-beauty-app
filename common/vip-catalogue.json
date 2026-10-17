@@ -1,0 +1,1003 @@
+{
+  "category": {
+    "id": "category-vip-packages",
+    "name": "VIP套餐",
+    "sort": 3,
+    "enabled": true
+  },
+  "products": [
+    {
+      "id": "jimeili-vip-6980",
+      "categoryId": "category-vip-packages",
+      "name": "黄金VIP套餐",
+      "subtitle": "A/B方案任选 · 分项目预约",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 6980,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 20,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "选择套餐方案和自选项目后下单。门店确认收款后，可在我的预约中按项目分次预约，每完成一次服务核销一次。具体服务安排请与所选门店确认。",
+      "packagePlans": [
+        {
+          "id": "a",
+          "name": "A方案",
+          "services": [
+            {
+              "id": "thermage-eye",
+              "name": "超玛吉 眼部450发",
+              "total": 1,
+              "referencePrice": 9980
+            },
+            {
+              "id": "9d-eye",
+              "name": "9D变眼术",
+              "total": 3,
+              "referencePrice": 3980
+            },
+            {
+              "id": "9d-face",
+              "name": "9D变脸术",
+              "total": 3,
+              "referencePrice": 9980
+            }
+          ],
+          "groups": [
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "name": "B方案",
+          "services": [
+            {
+              "id": "9d-face",
+              "name": "9D变脸术",
+              "total": 3,
+              "referencePrice": 9980
+            },
+            {
+              "id": "9d-eye",
+              "name": "9D变眼术",
+              "total": 3,
+              "referencePrice": 3980
+            },
+            {
+              "id": "glow-eye",
+              "name": "光屿重启 眼纹清零",
+              "total": 3,
+              "referencePrice": 9980
+            }
+          ],
+          "groups": [
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jimeili-vip-13800",
+      "categoryId": "category-vip-packages",
+      "name": "铂金VIP套餐",
+      "subtitle": "A/B方案任选 · 分项目预约",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 13800,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 21,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "选择套餐方案和自选项目后下单。门店确认收款后，可在我的预约中按项目分次预约，每完成一次服务核销一次。具体服务安排请与所选门店确认。",
+      "packagePlans": [
+        {
+          "id": "a",
+          "name": "A方案",
+          "services": [
+            {
+              "id": "thermage-face",
+              "name": "超玛吉 900发",
+              "total": 1,
+              "referencePrice": 19800
+            },
+            {
+              "id": "9d-face",
+              "name": "9D变脸术",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-eye",
+              "name": "9D变眼术",
+              "total": 6,
+              "referencePrice": 7980
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "光屿重启单部位",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 单部位 皮贴骨",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 单部位 轮廓重现",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 单部位 眼纹清零",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 单部位 美白淡斑",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 单部位 溶脂塑形",
+                  "total": 1,
+                  "referencePrice": 3980
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "name": "B方案",
+          "services": [
+            {
+              "id": "9d-face",
+              "name": "9D变脸术",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-eye",
+              "name": "9D变眼术",
+              "total": 6,
+              "referencePrice": 7980
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "光屿重启面部或身体",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 面部 皮贴骨",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 面部 轮廓重现",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 面部 全纹清零",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 面部 美白淡斑",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 身体 溶脂塑形",
+                  "total": 3,
+                  "referencePrice": 19800
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jimeili-vip-26800",
+      "categoryId": "category-vip-packages",
+      "name": "钻石VIP套餐",
+      "subtitle": "A/B方案任选 · 分项目预约",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 26800,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 22,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "选择套餐方案和自选项目后下单。门店确认收款后，可在我的预约中按项目分次预约，每完成一次服务核销一次。具体服务安排请与所选门店确认。",
+      "packagePlans": [
+        {
+          "id": "a",
+          "name": "A方案",
+          "services": [
+            {
+              "id": "thermage-face",
+              "name": "超玛吉 900发",
+              "total": 1,
+              "referencePrice": 19800
+            },
+            {
+              "id": "thermage-eye",
+              "name": "超玛吉 眼部450发",
+              "total": 1,
+              "referencePrice": 9980
+            },
+            {
+              "id": "ai",
+              "name": "金钻AI大师（1+1模式）",
+              "total": 1,
+              "referencePrice": 19800
+            },
+            {
+              "id": "9d-face",
+              "name": "9D变脸术",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-eye",
+              "name": "9D变眼术",
+              "total": 6,
+              "referencePrice": 7980
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "光屿重启单部位",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 单部位 皮贴骨",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 单部位 轮廓重现",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 单部位 眼纹清零",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 单部位 美白淡斑",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 单部位 溶脂塑形",
+                  "total": 1,
+                  "referencePrice": 3980
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "name": "B方案",
+          "services": [
+            {
+              "id": "9d-face",
+              "name": "9D变脸术",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-eye",
+              "name": "9D变眼术",
+              "total": 6,
+              "referencePrice": 7980
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "光屿重启面部或身体",
+              "pick": 2,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 面部 皮贴骨",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 面部 轮廓重现",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 面部 全纹清零",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 面部 美白淡斑",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 身体 溶脂塑形",
+                  "total": 3,
+                  "referencePrice": 19800
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jimeili-vip-49800",
+      "categoryId": "category-vip-packages",
+      "name": "女王VIP套餐",
+      "subtitle": "多项目服务 · 分次预约",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 49800,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 23,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "选择套餐方案和自选项目后下单。门店确认收款后，可在我的预约中按项目分次预约，每完成一次服务核销一次。具体服务安排请与所选门店确认。",
+      "packagePlans": [
+        {
+          "id": "standard",
+          "name": "女王方案",
+          "services": [
+            {
+              "id": "thermage-face",
+              "name": "超玛吉 面部900发",
+              "total": 1,
+              "referencePrice": 19800
+            },
+            {
+              "id": "thermage-eye",
+              "name": "超玛吉 眼部450发",
+              "total": 1,
+              "referencePrice": 9980
+            },
+            {
+              "id": "thermage-neck",
+              "name": "超玛吉 颈部900发",
+              "total": 1,
+              "referencePrice": 19800
+            },
+            {
+              "id": "ai-face",
+              "name": "金钻 面部（2+2模式）",
+              "total": 1,
+              "referencePrice": 29800
+            },
+            {
+              "id": "ai-eye",
+              "name": "金钻 眼部（2+2模式）",
+              "total": 1,
+              "referencePrice": 19800
+            },
+            {
+              "id": "ai-neck",
+              "name": "金钻 颈部（2+2模式）",
+              "total": 1,
+              "referencePrice": 29800
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "光屿重启面部或身体",
+              "pick": 2,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 面部 皮贴骨",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 面部 轮廓重现",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 面部 全纹清零",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 面部 美白淡斑",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 身体 溶脂塑形",
+                  "total": 3,
+                  "referencePrice": 19800
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jimeili-vip-99800",
+      "categoryId": "category-vip-packages",
+      "name": "至尊VIP套餐",
+      "subtitle": "多项目服务 · 分次预约",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 99800,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 24,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "选择套餐方案和自选项目后下单。门店确认收款后，可在我的预约中按项目分次预约，每完成一次服务核销一次。具体服务安排请与所选门店确认。",
+      "packagePlans": [
+        {
+          "id": "standard",
+          "name": "至尊方案",
+          "services": [
+            {
+              "id": "thermage-face",
+              "name": "超玛吉 面部900发",
+              "total": 2,
+              "referencePrice": 59600
+            },
+            {
+              "id": "thermage-eye",
+              "name": "超玛吉 眼部450发",
+              "total": 2,
+              "referencePrice": 39600
+            },
+            {
+              "id": "thermage-neck",
+              "name": "超玛吉 颈部900发",
+              "total": 2,
+              "referencePrice": 59600
+            },
+            {
+              "id": "ai-face",
+              "name": "金钻 面部（3+3模式）",
+              "total": 2,
+              "referencePrice": 79600
+            },
+            {
+              "id": "ai-eye",
+              "name": "金钻 眼部（3+3模式）",
+              "total": 2,
+              "referencePrice": 39600
+            },
+            {
+              "id": "ai-neck",
+              "name": "金钻 颈部（3+3模式）",
+              "total": 2,
+              "referencePrice": 79600
+            },
+            {
+              "id": "9d-face",
+              "name": "9D变脸术 面部",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-neck",
+              "name": "9D变脸术 颈部",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-body",
+              "name": "9D变脸术 身体任选一个部位",
+              "total": 6,
+              "referencePrice": 19980
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "光屿重启面部或身体",
+              "pick": 3,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 面部 皮贴骨",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 面部 轮廓重现",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 面部 全纹清零",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 面部 美白淡斑",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 身体 溶脂塑形",
+                  "total": 3,
+                  "referencePrice": 19800
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jimeili-vip-199800",
+      "categoryId": "category-vip-packages",
+      "name": "帝王VIP套餐",
+      "subtitle": "多项目服务 · 分次预约",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 199800,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 25,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "选择套餐方案和自选项目后下单。门店确认收款后，可在我的预约中按项目分次预约，每完成一次服务核销一次。具体服务安排请与所选门店确认。",
+      "packagePlans": [
+        {
+          "id": "standard",
+          "name": "帝王方案",
+          "services": [
+            {
+              "id": "thermage-face",
+              "name": "超玛吉 面部900发",
+              "total": 5,
+              "referencePrice": 149000
+            },
+            {
+              "id": "thermage-eye",
+              "name": "超玛吉 眼部450发",
+              "total": 5,
+              "referencePrice": 99000
+            },
+            {
+              "id": "thermage-neck",
+              "name": "超玛吉 颈部900发",
+              "total": 5,
+              "referencePrice": 149000
+            },
+            {
+              "id": "ai-face",
+              "name": "双逆/金钻 面部（3+3模式）",
+              "total": 5,
+              "referencePrice": 199000
+            },
+            {
+              "id": "ai-eye",
+              "name": "双逆/金钻 眼部（3+3模式）",
+              "total": 5,
+              "referencePrice": 99000
+            },
+            {
+              "id": "ai-neck",
+              "name": "双逆/金钻 颈部（3+3模式）",
+              "total": 5,
+              "referencePrice": 199000
+            },
+            {
+              "id": "9d-face",
+              "name": "9D变脸术 面部",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-neck",
+              "name": "9D变脸术 颈部",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-body",
+              "name": "9D变脸术 身体任选一个部位",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "glow-1",
+              "name": "光屿重启 面部 皮贴骨",
+              "total": 3,
+              "referencePrice": 19800
+            },
+            {
+              "id": "glow-2",
+              "name": "光屿重启 面部 轮廓重现",
+              "total": 3,
+              "referencePrice": 19800
+            },
+            {
+              "id": "glow-3",
+              "name": "光屿重启 面部 全纹清零",
+              "total": 3,
+              "referencePrice": 19800
+            },
+            {
+              "id": "glow-4",
+              "name": "光屿重启 面部 美白淡斑",
+              "total": 3,
+              "referencePrice": 19800
+            },
+            {
+              "id": "glow-5",
+              "name": "光屿重启 身体 溶脂塑形",
+              "total": 3,
+              "referencePrice": 19800
+            }
+          ],
+          "groups": [
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

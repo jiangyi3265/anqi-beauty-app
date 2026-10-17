@@ -1,0 +1,2 @@
+const {chromium}=require("C:/Users/Administrator/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright");
+(async()=>{const b=await chromium.launch({channel:"msedge",headless:true});const p=await b.newPage({viewport:{width:390,height:844}});await p.goto("https://anqi.okam.top/#/pages/home/index");await p.waitForTimeout(3000);await p.screenshot({path:"verification/ui-20260926/hero-inspect.png",fullPage:false});await b.close()})().catch(e=>{console.error(e);process.exit(1)})

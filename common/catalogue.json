@@ -1,0 +1,149 @@
+{
+  "config": {
+    "name": "暨美丽",
+    "version": "1.0.7",
+    "maxGifts": 3,
+    "hero": "/static/brand/jimeili-1-steamed-face.jpg",
+    "welcome": "/static/brand/jimeili-rejuvenation-info.jpg",
+    "brand": "/static/brand/jimeili-rejuvenation-info.jpg",
+    "serviceHeading": "/static/brand/jimeili-3-anti-wrinkle.jpg",
+    "productHeading": "/static/brand/jimeili-5-active-collagen.jpg",
+    "agreement": "暨美丽用户服务协议（测试版）：本协议仅用于测试，上线前请替换为正式协议。",
+    "privacy": "暨美丽隐私政策（测试版）：本隐私政策仅用于测试，上线前请替换为正式版本。",
+    "subscriptionEnabled": true,
+    "messageReminderEnabled": true,
+    "marketingEnabled": true,
+    "homeImage": "/static/brand/jimeili-1-steamed-face.jpg",
+    "brandLogo": "/static/brand/logo-jimeili.png"
+  },
+  "products": [
+    {
+      "id": "jimeili-rejuvenation-set",
+      "name": "逆龄肽奢护焕颜套",
+      "image": "/static/brand/product-closeup.jpg",
+      "detailImage": "/static/brand/jimeili-rejuvenation-info.jpg",
+      "price": 368,
+      "coursePrice": 2980,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "home": true,
+      "gift": true,
+      "trial": true,
+      "enabled": true,
+      "description": "多肽精粹焕颜护理套装，包含焕颜精华液与多肽精华液，深层滋养、紧致焕亮。具体适用方案与到店服务安排请咨询门店。",
+      "categoryId": "category-goods"
+    },
+    {
+      "id": "jimeili-collagen-salmon",
+      "name": "暨美丽胶原蛋水光（三文鱼）",
+      "image": "/static/brand/product-salmon-aquatic.jpg",
+      "detailImage": "/static/brand/product-salmon-aquatic.jpg",
+      "price": 398,
+      "coursePrice": 2980,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "home": true,
+      "gift": false,
+      "trial": false,
+      "enabled": true,
+      "description": "单次：398元/次；疗程：2980元/10次。补水嫩肤、抗氧提亮、紧致修护。",
+      "categoryId": "category-featured"
+    },
+    {
+      "id": "jimeili-collagen-vitamin-c",
+      "name": "暨美丽胶原蛋水光（VC）",
+      "image": "/static/brand/product-vitamin-c.jpg",
+      "detailImage": "/static/brand/product-vitamin-c.jpg",
+      "price": 398,
+      "coursePrice": 2980,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "home": true,
+      "gift": false,
+      "trial": false,
+      "enabled": true,
+      "description": "单次：398元/次；疗程：2980元/10次。美白提亮、改善肤色、抗氧修护。",
+      "categoryId": "category-featured"
+    },
+    {
+      "id": "jimeili-collagen-composite",
+      "name": "暨美丽胶原蛋水光（复合性）",
+      "image": "/static/brand/product-composite-aqueous.jpg",
+      "detailImage": "/static/brand/product-composite-aqueous.jpg",
+      "price": 398,
+      "coursePrice": 2980,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "home": true,
+      "gift": false,
+      "trial": false,
+      "enabled": true,
+      "description": "单次：398元/次；疗程：2980元/10次。补水嫩肤、抗氧提亮、紧致修护。",
+      "categoryId": "category-featured"
+    },
+    {
+      "id": "jimeili-collagen-type-iii",
+      "name": "暨美丽胶原蛋水光（三型胶原蛋白）",
+      "image": "/static/brand/product-recombinant-collagen.jpg",
+      "detailImage": "/static/brand/product-recombinant-collagen.jpg",
+      "price": 498,
+      "coursePrice": 3980,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "home": true,
+      "gift": false,
+      "trial": false,
+      "enabled": true,
+      "description": "单次：498元/次；疗程：3980元/10次。促进胶原蛋白再生，修护老化肌肤。",
+      "categoryId": "category-featured"
+    },
+    {
+      "id": "jimeili-ai-light-restart",
+      "name": "暨美丽AI光屿重启",
+      "image": "/static/brand/product-ai-light-restart-v2.jpg",
+      "detailImage": "/static/brand/product-ai-light-info.jpg",
+      "price": 3980,
+      "coursePrice": 6980,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "home": true,
+      "gift": false,
+      "trial": false,
+      "enabled": true,
+      "description": "单部位：3980元/次；单部位疗程：6980元/3次；全脸：16800元/3次。具体方案到店咨询.",
+      "categoryId": "category-featured"
+    }
+  ],
+  "stores": [
+    {
+      "id": "store-1",
+      "name": "暨美丽",
+      "contact": "庞敬敬",
+      "phone": "13140131984",
+      "address": "晋安路集英花园北门吕庄一组集资楼3号楼第4套",
+      "image": "/static/brand/jimeili-rejuvenation-kit.jpg",
+      "hours": "09:00—20:00"
+    }
+  ],
+  "demoMode": false,
+  "categories": [
+    {
+      "id": "category-featured",
+      "name": "特色项目",
+      "sort": 1,
+      "enabled": true
+    },
+    {
+      "id": "category-goods",
+      "name": "优选单品",
+      "sort": 2,
+      "enabled": true
+    }
+  ]
+}

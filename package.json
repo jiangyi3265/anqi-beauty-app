@@ -1,0 +1,40 @@
+{
+  "name": "anqi-beauty-app",
+  "version": "1.1.24",
+  "private": true,
+  "scripts": {
+    "dev:h5": "node tools/uni.cjs -p h5 --host 127.0.0.1",
+    "dev:mp-weixin": "node tools/uni.cjs -p mp-weixin --host 127.0.0.1",
+    "build:h5": "node tools/uni.cjs build -p h5",
+    "build:mp-weixin": "node tools/uni.cjs build -p mp-weixin && node tools/prepare-mp-package.cjs",
+    "server": "node --env-file-if-exists=.env server/index.cjs"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "3.0.0-5020420260813003",
+    "@dcloudio/uni-components": "3.0.0-5020420260813003",
+    "@dcloudio/uni-h5": "3.0.0-5020420260813003",
+    "@dcloudio/uni-mp-weixin": "3.0.0-5020420260813003",
+    "mysql2": "^3.24.4",
+    "qrcode": "^1.5.4",
+    "vue": "3.4.21",
+    "vue-i18n": "9.14.5"
+  },
+  "devDependencies": {
+    "@dcloudio/types": "^3.4.15",
+    "@dcloudio/vite-plugin-uni": "3.0.0-5020420260813003",
+    "jimp": "0.22.12",
+    "sass": "1.77.8",
+    "vite": "5.2.8"
+  },
+  "overrides": {
+    "minimist": "^1.2.8",
+    "jpeg-js": "^0.4.4",
+    "adm-zip": "^0.6.1",
+    "phin": "^3.7.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jiangyi3265/anqi-beauty-app.git"
+  },
+  "description": "暨美丽 UniApp 用户端及 Node.js 业务服务，配合 anqi-beauty-backend 与 anqi-beauty-admin 使用。"
+}

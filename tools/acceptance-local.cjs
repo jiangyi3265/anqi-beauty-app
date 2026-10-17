@@ -1,0 +1,18 @@
+const assert=(condition,message)=>{if(!condition)throw new Error(message)};
+const base='http://127.0.0.1:3119/api'; const internal={'x-anqi-internal':'local-secret'};
+async function req(path,method='GET',body,headers={}){const r=await fetch(base+path,{method,headers:{'content-type':'application/json',...headers},body:body===undefined?undefined:JSON.stringify(body)});let data;try{data=await r.json()}catch{data={}};return {status:r.status,data}}
+(async()=>{
+ let r=await req('/health');assert(r.status===200&&r.data.demoMode===false,'生产开关未关闭');
+ r=await req('/bootstrap');assert(r.status===200&&r.data.config.name==='暨美丽'&&['/static/brand/hero-middle.jpg','/static/brand/jimeili-1-steamed-face.jpg'].includes(r.data.config.homeImage)&&r.data.config.brandLogo==='/static/brand/logo-jimeili.png','品牌配置错误');assert(Array.isArray(r.data.products)&&r.data.products.length>=1,'商品列表为空');const product=r.data.products.find(x=>x.name==='逆龄肽奢护焕颜套')||r.data.products.find(x=>x.kind==='service');assert(product,'服务商品不存在');assert(r.data.paymentMode==='off','支付模式不是关闭状态');assert(product.name==='逆龄肽奢护焕颜套'&&product.image&&product.detailImage&&product.image!==product.detailImage,'商品封面和详情图未分离');
+ const username='accept'+Date.now().toString(36);r=await req('/auth/wechat','POST',{code:'accept-'+username});assert(r.status===200&&r.data.token,'微信登录失败');const token=r.data.token;const auth={'authorization':'Bearer '+token};
+ r=await req('/orders','POST',{productId:product.id,spec:'single',quantity:1,storeId:r.data.storeId||'store-1'} ,auth);if(r.status!==200){r=await req('/orders','POST',{productId:product.id,spec:'single',quantity:1,storeId:'store-1'},auth)}assert(r.status===200&&r.data.status==='pending','下单未生成待付款订单');const order=r.data;
+ r=await req('/orders/'+order.id+'/pay','POST',{},auth);assert(r.status===503&&r.data.error.includes('微信支付尚未接入'),'在线支付未配置时未明确阻止');r=await req('/orders/'+order.id, 'GET',undefined,auth);assert(r.status===200&&r.data.status==='pending','支付失败却改变订单状态');
+ const activity={name:'暨美丽焕颜护理活动',image:'/static/brand/jimeili-1-steamed-face.jpg',description:'多肽精粹焕颜护理套装，具体适用方案请到店咨询。',productId:product.id,enabled:true};r=await req('/admin/activities','POST',activity,internal);assert(r.status===200&&r.data.productId===product.id,'后台活动关联商品保存失败');r=await req('/activities');assert(r.status===200&&r.data.some(x=>x.productId===product.id),'前端活动接口未返回关联商品');
+ r=await req('/admin/users', 'GET', undefined, internal);assert(r.status===200&&r.data.length>=1,'后台会员列表未同步');await req('/admin/users/'+r.data[0].id,'PUT',{invited:true},internal);r=await req('/claims','POST',{productIds:[product.id],type:'trial'},auth);assert(r.status===400&&r.data.error.includes('3件'),'礼品领取规则被错误改为1件');
+ r=await req('/admin/orders/'+order.id,'POST',{action:'confirmPayment',note:'隔离验收：门店现金收款'},internal);assert(r.status===200&&r.data.status==='ready'&&r.data.paymentMode==='offline','后台确认线下收款未更新订单');r=await req('/orders/'+order.id, 'GET',undefined,auth);assert(r.status===200&&r.data.status==='ready','前端订单状态未同步');
+ const date=new Date(Date.now()+86400000).toISOString().slice(0,10);r=await req('/appointments','POST',{orderId:order.id,date,time:'10:00'},auth);assert(r.status===200&&r.data.status==='booked','预约创建失败');const appointment=r.data;
+ r=await req('/admin/appointments/'+appointment.id,'PUT',{status:'completed'},internal);assert(r.status===200&&r.data.status==='completed','后台完成预约失败');r=await req('/orders/'+order.id,'GET',undefined,auth);assert(r.status===200&&r.data.status==='completed','预约完成未同步订单');
+ console.log(JSON.stringify({ok:true,checks:8,product:product.name,order:order.id,activity:activity.name}));
+})().catch(e=>{console.error(e.message);process.exitCode=1});
+
+
