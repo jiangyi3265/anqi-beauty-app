@@ -30,7 +30,14 @@
     "minimist": "^1.2.8",
     "jpeg-js": "^0.4.4",
     "adm-zip": "^0.6.1",
-    "phin": "^3.7.1"
+    "phin": "^3.7.1",
+    "@babel/core": "^7.29.7",
+    "source-map-js": "^1.2.2",
+    "postcss": "^8.5.29",
+    "ws": "^8.21.0",
+    "express": "^4.22.2",
+    "@intlify/core-base@9.1.9": "9.1.11",
+    "@intlify/message-resolver@9.1.9": "9.1.11"
   },
   "repository": {
     "type": "git",
