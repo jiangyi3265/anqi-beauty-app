@@ -1,6 +1,6 @@
 {
   "name": "anqi-beauty-app",
-  "version": "1.1.25",
+  "version": "1.1.26",
   "private": true,
   "scripts": {
     "dev:h5": "node tools/uni.cjs -p h5 --host 127.0.0.1",
