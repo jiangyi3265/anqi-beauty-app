@@ -40,6 +40,17 @@ const cents=(db,uid)=>db.earnings.filter(e=>e.userId===uid&&e.source==='pool').r
   assert.deepEqual(db.earnings.filter(e=>e.source==='pool').map(e=>[e.userId,e.amountCents]),[['ok',500000]]);
   checks.push('only paid, unrefunded VIP card holders active before the period end share the pool');
 
+  const end=start+DAY;
+  db=fixture();enable(db);member(db,'a',6980,start+HOUR);const late=member(db,'b',6980,start+HOUR);
+  Object.assign(late,{refundStatus:'refunded',status:'aftersale',refundAt:new Date(end+30000).toISOString()});income.settle(db,end+60000);
+  assert.deepEqual(db.earnings.filter(e=>e.source==='pool').map(e=>[e.userId,e.amountCents]),[['a',250000],['b',250000]]);
+  income.settle(db,end+DAY+HOUR);assert.deepEqual(db.earnings.filter(e=>e.poolSettlementId==='pool:D:2026-10-19').map(e=>[e.userId,e.amountCents]),[['a',500000]]);
+  db=fixture();enable(db);member(db,'a',6980,start+HOUR);member(db,'b',6980,start+HOUR,{refundStatus:'refunded',status:'aftersale',refundAt:new Date(end-1000).toISOString()});income.settle(db,end+HOUR);
+  assert.deepEqual(db.earnings.filter(e=>e.source==='pool').map(e=>e.userId),['a']);
+  db=fixture();enable(db,{source:'sales'});const sold=member(db,'a',6980,start+HOUR);Object.assign(sold,{refundStatus:'refunded',status:'aftersale',refundAt:new Date(end+30000).toISOString()});income.settle(db,end+60000);
+  assert.equal(db.poolSettlements[0].poolCents,34900);
+  checks.push('holders are judged as of the period end: a refund just after midnight still shares the previous day (2,500 each) and only leaves from the next period');
+
   db=fixture();enable(db,{source:'sales'});
   member(db,'u-a',6980,start+HOUR);member(db,'u-b',13800,start+HOUR);member(db,'u-c',26800,start+HOUR);
   income.settle(db,start+DAY+HOUR);assert.equal(db.poolSettlements[0].poolCents,237900);

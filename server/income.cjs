@@ -49,10 +49,14 @@ function nextPeriod(rule, start) {
   const [y,m]=day.split('-').map(Number), end=Date.parse(`${m===12?y+1:y}-${String(m===12?1:m+1).padStart(2,'0')}-01T00:00:00+08:00`);
   return { key:'M:'+day, label:`${day} 至 ${beijingDate(end-DAY)}`, start, end };
 }
+// 截至期末是否持有：期末前已付款，且没有在期末前退款（期末后才退款的仍计入该期）
+function heldAt(o, end) {
+  return o.paymentStatus==='paid'&&Date.parse(o.paidAt)<end&&!['cancelled','pending'].includes(o.status)&&!(o.refundStatus==='refunded'&&!(Date.parse(o.refundAt)>=end));
+}
 function poolHolders(db, end) {
   const weights=new Map();
   for(const o of db.orders||[]) {
-    if(!o.product?.packagePlans?.length||!isPaid(o)||!(Date.parse(o.paidAt)<end))continue;
+    if(!o.product?.packagePlans?.length||!heldAt(o,end))continue;
     const user=db.users.find(u=>u.id===o.userId);if(!user||user.disabled)continue;
     const cents=Math.round(Number(o.total)*100);if(Number.isSafeInteger(cents)&&cents>0)weights.set(o.userId,(weights.get(o.userId)||0)+cents);
   }
@@ -60,7 +64,7 @@ function poolHolders(db, end) {
 }
 function poolCents(db, rule, period) {
   if(rule.source==='fixed') return Number((BigInt(Math.round(rule.baseAmount*100))*BigInt(Math.round(rule.percent*100))+5000n)/10000n);
-  const sales=(db.orders||[]).filter(o=>o.product?.packagePlans?.length&&isPaid(o)&&Date.parse(o.paidAt)>=period.start&&Date.parse(o.paidAt)<period.end).reduce((n,o)=>n+Math.round(Number(o.total)*100),0);
+  const sales=(db.orders||[]).filter(o=>o.product?.packagePlans?.length&&heldAt(o,period.end)&&Date.parse(o.paidAt)>=period.start).reduce((n,o)=>n+Math.round(Number(o.total)*100),0);
   return Number((BigInt(sales)*BigInt(Math.round(rule.percent*100))+5000n)/10000n);
 }
 // 按权重分到分，余数按小数部分从大到小补齐，总额恰好等于奖池
