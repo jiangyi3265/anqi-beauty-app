@@ -2,7 +2,7 @@ const crypto = require('node:crypto');
 const DAY = 86400000;
 const clone = x => JSON.parse(JSON.stringify(x));
 function fail(message, status = 400) { throw Object.assign(new Error(message), { status }); }
-function init(db) { db.incomeRules ||= []; db.incomePlans ||= []; db.earnings ||= []; }
+function init(db) { db.incomeRules ||= []; db.incomePlans ||= []; db.earnings ||= []; db.poolSettlements ||= []; }
 function integer(v, min, max, label) { if (!Number.isInteger(v) || v < min || v > max) fail(`${label}须为${min}至${max}的整数`); return v; }
 function amount(v, max, label) { if (typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v > max || Math.abs(v * 100 - Math.round(v * 100)) > 0.000001) fail(label + '无效，最多保留两位小数'); return v; }
 function part(v, periodic) {
@@ -33,11 +33,92 @@ function manageReferral(db, body, actor) {
   db.audit ||= [];db.audit.unshift({id:crypto.randomUUID(),actor,resource:'incomeRules',target:'referral',method:'PUT',revision:row.revision,createdAt:row.updatedAt});
   return row;
 }
+// 分红池（静态收益）：每个结算周期拿出一笔奖池，按办卡金额占比分给全部办卡会员。
+// 周期按北京时间划分，周期结束后结算一次；保存在 config，结算记录在 poolSettlements。
+const POOL_DEFAULTS = { revision:0, enabled:false, source:'fixed', baseAmount:100000, percent:5, cycle:'daily', startDate:'' };
+const HOUR8 = 8*3600000;
+const beijingDate = ms => new Date(ms+HOUR8).toISOString().slice(0,10);
+const beijingStart = date => Date.parse(date+'T00:00:00+08:00');
+function validDay(v) { return typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&beijingDate(beijingStart(v))===v; }
+function poolRule(db) { return { ...POOL_DEFAULTS, ...(db.config?.poolReward || {}) }; }
+function lastSettledEnd(db) { return (db.poolSettlements||[]).reduce((n,s)=>Math.max(n,Date.parse(s.end)||0),0); }
+function nextPeriod(rule, start) {
+  const day=beijingDate(start);
+  if(rule.cycle==='daily') return { key:'D:'+day, label:day, start, end:start+DAY };
+  if(rule.cycle==='weekly') { const end=start+7*DAY; return { key:'W:'+day, label:`${day} 至 ${beijingDate(end-DAY)}`, start, end }; }
+  const [y,m]=day.split('-').map(Number), end=Date.parse(`${m===12?y+1:y}-${String(m===12?1:m+1).padStart(2,'0')}-01T00:00:00+08:00`);
+  return { key:'M:'+day, label:`${day} 至 ${beijingDate(end-DAY)}`, start, end };
+}
+function poolHolders(db, end) {
+  const weights=new Map();
+  for(const o of db.orders||[]) {
+    if(!o.product?.packagePlans?.length||!isPaid(o)||!(Date.parse(o.paidAt)<end))continue;
+    const user=db.users.find(u=>u.id===o.userId);if(!user||user.disabled)continue;
+    const cents=Math.round(Number(o.total)*100);if(Number.isSafeInteger(cents)&&cents>0)weights.set(o.userId,(weights.get(o.userId)||0)+cents);
+  }
+  return weights;
+}
+function poolCents(db, rule, period) {
+  if(rule.source==='fixed') return Number((BigInt(Math.round(rule.baseAmount*100))*BigInt(Math.round(rule.percent*100))+5000n)/10000n);
+  const sales=(db.orders||[]).filter(o=>o.product?.packagePlans?.length&&isPaid(o)&&Date.parse(o.paidAt)>=period.start&&Date.parse(o.paidAt)<period.end).reduce((n,o)=>n+Math.round(Number(o.total)*100),0);
+  return Number((BigInt(sales)*BigInt(Math.round(rule.percent*100))+5000n)/10000n);
+}
+// 按权重分到分，余数按小数部分从大到小补齐，总额恰好等于奖池
+function allocate(total, weights) {
+  const sum=[...weights.values()].reduce((n,w)=>n+w,0);if(!sum||!total)return [];
+  const rows=[...weights].map(([userId,w])=>{const exact=BigInt(total)*BigInt(w);return {userId,cents:Number(exact/BigInt(sum)),rest:exact%BigInt(sum)}});
+  let left=total-rows.reduce((n,r)=>n+r.cents,0);
+  rows.slice().sort((a,b)=>b.rest>a.rest?1:b.rest<a.rest?-1:a.userId<b.userId?-1:1).forEach(r=>{if(left>0){r.cents++;left--}});
+  return rows;
+}
+function settlePool(db, now=Date.now(), limit=400) {
+  const rule=poolRule(db);if(!rule.enabled||!validDay(rule.startDate))return 0;
+  let start=Math.max(beijingStart(rule.startDate),lastSettledEnd(db)),settled=0;
+  while(settled<limit) {
+    const period=nextPeriod(rule,start);if(period.end>now)break;
+    const id='pool:'+period.key;
+    if(!db.poolSettlements.some(s=>s.id===id)) {
+      const holders=poolHolders(db,period.end),amount=poolCents(db,rule,period),rows=allocate(amount,holders),createdAt=new Date(now).toISOString();
+      const cycleText={daily:'每天',weekly:'每周',monthly:'每月'}[rule.cycle];
+      for(const r of rows.filter(r=>r.cents>0)) db.earnings.push({id:crypto.randomUUID(),accrualKey:`${id}:${r.userId}`,poolSettlementId:id,userId:r.userId,type:'static',source:'pool',level:0,period:1,revision:rule.revision,kind:'credit',amountCents:r.cents,amount:r.cents/100,name:`分红池 ${period.label}（${cycleText}）`,dueAt:new Date(period.end).toISOString(),createdAt});
+      db.poolSettlements.push({id,periodKey:period.key,label:period.label,cycle:rule.cycle,source:rule.source,start:new Date(period.start).toISOString(),end:new Date(period.end).toISOString(),poolCents:amount,distributedCents:rows.reduce((n,r)=>n+r.cents,0),members:holders.size,totalWeightCents:[...holders.values()].reduce((n,w)=>n+w,0),revision:rule.revision,createdAt});
+      settled++;
+    }
+    start=period.end;
+  }
+  return settled;
+}
+function managePool(db, body, actor, now=Date.now()) {
+  const previous=poolRule(db),today=beijingDate(now);
+  if (body.revision !== previous.revision) fail('规则已被其他管理员修改，请刷新后再编辑',409);
+  if (typeof body.enabled !== 'boolean') fail('请设置分红池开关');
+  if (!['fixed','sales'].includes(body.source)) fail('请选择奖池来源');
+  if (!['daily','weekly','monthly'].includes(body.cycle)) fail('请选择结算周期');
+  const baseAmount=amount(body.baseAmount,100000000,'奖池基数'),percent=amount(body.percent,100,'奖池比例');
+  if (body.enabled && (percent<=0 || (body.source==='fixed'&&baseAmount<=0))) fail('启用分红池时奖池金额必须大于0');
+  let startDate=body.startDate||'';
+  if (startDate && !validDay(startDate)) fail('开始日期无效');
+  if (body.enabled) {
+    // 重新开启不补发关闭期间；开始日期不得早于今天（沿用原日期除外），也不与已结算周期重叠
+    const unchanged=previous.enabled&&startDate===previous.startDate;
+    if (!startDate || (!unchanged && startDate<today)) startDate=today;
+    const settledUntil=lastSettledEnd(db);if(settledUntil&&beijingStart(startDate)<settledUntil)startDate=beijingDate(settledUntil);
+  }
+  const row={revision:previous.revision+1,enabled:body.enabled,source:body.source,baseAmount,percent,cycle:body.cycle,startDate,updatedAt:new Date(now).toISOString()};
+  db.config ||= {}; db.config.poolReward=row;
+  db.audit ||= [];db.audit.unshift({id:crypto.randomUUID(),actor,resource:'incomeRules',target:'pool',method:'PUT',revision:row.revision,createdAt:row.updatedAt});
+  return row;
+}
+function poolOverview(db, now=Date.now()) {
+  const rule=poolRule(db),holders=poolHolders(db,now),start=rule.enabled&&validDay(rule.startDate)?Math.max(beijingStart(rule.startDate),lastSettledEnd(db)):0;
+  return { members:holders.size, totalWeight:[...holders.values()].reduce((n,w)=>n+w,0)/100, nextSettlementAt:start?new Date(nextPeriod(rule,start).end).toISOString():'', settlements:(db.poolSettlements||[]).slice(-90).reverse() };
+}
 function manage(db, method, productId, body, actor) {
   init(db);
-  if (method==='GET' && !productId) return { rules:db.incomeRules, referral:referralRule(db), products:db.products.filter(p=>p.packagePlans?.length).map(p=>({id:p.id,name:p.name,price:p.memberPrice??p.price,enabled:p.enabled})) };
+  if (method==='GET' && !productId) return { rules:db.incomeRules, referral:referralRule(db), pool:poolRule(db), poolOverview:poolOverview(db), products:db.products.filter(p=>p.packagePlans?.length).map(p=>({id:p.id,name:p.name,price:p.memberPrice??p.price,enabled:p.enabled})) };
   if (method!=='PUT' || !productId) fail('方法不允许',405);
   if (productId === 'referral') return manageReferral(db, body, actor);
+  if (productId === 'pool') return managePool(db, body, actor);
   if (!db.products.some(p=>p.id===productId&&p.packagePlans?.length)) fail('请选择现有VIP套餐');
   const previous=db.incomeRules.find(r=>r.productId===productId);
   if (body.revision !== (previous?.revision||0)) fail('规则已被其他管理员修改，请刷新后再编辑',409);
@@ -49,7 +130,7 @@ function manage(db, method, productId, body, actor) {
   db.audit ||= [];db.audit.unshift({id:crypto.randomUUID(),actor,resource:'incomeRules',target:productId,method:'PUT',revision:row.revision,createdAt:row.updatedAt});
   return row;
 }
-function publicRules(db) { init(db);return db.incomeRules.filter(r=>r.static.enabled).map(r=>({productId:r.productId,revision:r.revision,static:r.static,refundPolicy:r.refundPolicy})); }
+function publicRules(db) { init(db);if(poolRule(db).enabled)return [];return db.incomeRules.filter(r=>r.static.enabled).map(r=>({productId:r.productId,revision:r.revision,static:r.static,refundPolicy:r.refundPolicy})); }
 function snapshot(db, order) {
   init(db);
   const rule=db.incomeRules.find(r=>r.productId===order.productId),referral=referralRule(db),buyer=db.users.find(u=>u.id===order.userId),s={};
@@ -62,7 +143,8 @@ function snapshot(db, order) {
       if(!next||seen.has(next.id))break;
       seen.add(next.id);ancestors.push({id:next.id,enabled:!next.disabled});user=next;
     }
-    Object.assign(s,{rule:clone(rule),ancestors});
+    const frozen=clone(rule);if(poolRule(db).enabled)frozen.static={...frozen.static,enabled:false};
+    Object.assign(s,{rule:frozen,ancestors});
   }
   if(referral.enabled) {
     const inviter=db.users.find(u=>u.id===buyer?.inviterId);
@@ -109,7 +191,7 @@ function activate(db,order) {
   if(s.referral)addReferralPlan(db,order,s.referral);
 }
 function settle(db,now=Date.now(),limit=2000) {
-  init(db);let posted=0;
+  init(db);let posted=settlePool(db,now);
   const keys=new Set(db.earnings.map(e=>e.accrualKey).filter(Boolean));
   for(const p of db.incomePlans) {
     if(p.status!=='active')continue;
@@ -149,4 +231,4 @@ function summary(db,userId) {
   return {total:sum(),static:sum('static'),dynamic:sum('dynamic'),pending:plans.reduce((n,p)=>n+(p.periods-p.posted)*p.amountCents,0)/100};
 }
 function customerPlans(db,userId) {init(db);return db.incomePlans.filter(p=>p.userId===userId).map(p=>({id:p.id,type:p.type,name:p.productName,level:p.level,...(p.source?{source:p.source,tier:p.tier,percent:p.percent}:{}),amount:p.amountCents/100,periods:p.periods,posted:p.posted,status:p.status,nextAt:p.status==='active'?new Date(Date.parse(p.startAt)+p.posted*p.intervalDays*DAY).toISOString():'',paused:!!db.users.find(u=>u.id===userId)?.disabled}));}
-module.exports={init,manage,publicRules,snapshot,activate,settle,refund,summary,customerPlans,centsFor,referralRule};
+module.exports={init,manage,publicRules,snapshot,activate,settle,refund,summary,customerPlans,centsFor,referralRule,poolRule,settlePool,allocate,managePool};

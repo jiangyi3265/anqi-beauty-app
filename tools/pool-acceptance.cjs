@@ -1,0 +1,110 @@
+// 分红池（静态收益）验收：奖池按办卡金额占比分给全部办卡会员，按北京时间周期结算。
+const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),net=require('node:net');
+const {spawn}=require('node:child_process'),{once}=require('node:events'),income=require('../server/income.cjs'),seed=require('../server/seed.cjs');
+const checks=[],DAY=86400000,HOUR=3600000;
+const D0='2026-10-18',start=Date.parse(D0+'T00:00:00+08:00');
+const pool=(o={})=>({revision:0,enabled:true,source:'fixed',baseAmount:100000,percent:5,cycle:'daily',startDate:D0,...o});
+const vip={id:'vip',name:'黄金VIP套餐',packagePlans:[{}]};
+let n=0;
+function fixture(){return {config:{},products:[vip,{id:'kit',name:'焕颜套'}],users:[],orders:[],earnings:[],incomeRules:[],incomePlans:[],poolSettlements:[]}}
+function member(db,id,total,paidAt,extra={}){if(!db.users.some(u=>u.id===id))db.users.push({id});const o={id:'o'+(n++),userId:id,productId:extra.productId||'vip',product:extra.productId==='kit'?{name:'焕颜套'}:{...vip},total,status:'ready',paymentStatus:'paid',paidAt:new Date(paidAt).toISOString(),...extra};db.orders.push(o);return o}
+function enable(db,o={},now=start+HOUR){return income.managePool(db,pool({revision:income.poolRule(db).revision,...o}),'tester',now)}
+const cents=(db,uid)=>db.earnings.filter(e=>e.userId===uid&&e.source==='pool').reduce((s,e)=>s+e.amountCents,0);
+
+(function unit(){
+  let db=fixture();
+  assert.deepEqual(income.poolRule(db),{revision:0,enabled:false,source:'fixed',baseAmount:100000,percent:5,cycle:'daily',startDate:''});
+  member(db,'u-a',6980,start+HOUR);income.settle(db,start+2*DAY);assert.equal(db.poolSettlements.length,0);
+  checks.push('defaults: fixed 100,000 × 5%, daily, disabled until an administrator enables it');
+
+  db=fixture();enable(db);
+  member(db,'u-a',6980,start+HOUR);member(db,'u-b',13800,start+2*HOUR);member(db,'u-c',26800,start+3*HOUR);
+  income.settle(db,start+DAY-1);assert.equal(db.poolSettlements.length,0);
+  income.settle(db,start+DAY+HOUR);
+  assert.deepEqual(['u-a','u-b','u-c'].map(u=>cents(db,u)),[73350,145019,281631]);
+  for(const id of ['n1','n2','n3','n4','n5'])member(db,id,6980,start+DAY+2*HOUR);
+  income.settle(db,start+2*DAY+HOUR);income.settle(db,start+2*DAY+HOUR);
+  const day2=db.earnings.filter(e=>e.poolSettlementId==='pool:D:2026-10-19');
+  const by=Object.fromEntries(day2.map(e=>[e.userId,e.amountCents]));
+  assert.deepEqual([by['u-a'],by['u-b'],by['u-c'],by.n1,by.n2],[42313,83657,162464,42314,42313]);
+  assert.equal(day2.reduce((s,e)=>s+e.amountCents,0),500000);assert.equal(db.poolSettlements.length,2);
+  assert.match(day2[0].name,/分红池 2026-10-19（每天）/);
+  checks.push('worked example: day 1 A 733.50 / B 1,450.19 / C 2,816.31; day 2 with 5 more members A 423.13; every period sums to exactly 5,000.00 and settles once');
+
+  db=fixture();enable(db);
+  member(db,'ok',6980,start+HOUR);member(db,'refunded',6980,start+HOUR,{refundStatus:'refunded',status:'aftersale'});
+  member(db,'pending',6980,start+HOUR,{paymentStatus:'unpaid',status:'pending'});member(db,'cancelled',6980,start+HOUR,{status:'cancelled'});
+  member(db,'disabled',6980,start+HOUR);db.users.find(u=>u.id==='disabled').disabled=true;member(db,'goods',6980,start+HOUR,{productId:'kit'});
+  member(db,'late',6980,start+DAY+HOUR);
+  income.settle(db,start+DAY+HOUR);
+  assert.deepEqual(db.earnings.filter(e=>e.source==='pool').map(e=>[e.userId,e.amountCents]),[['ok',500000]]);
+  checks.push('only paid, unrefunded VIP card holders active before the period end share the pool');
+
+  db=fixture();enable(db,{source:'sales'});
+  member(db,'u-a',6980,start+HOUR);member(db,'u-b',13800,start+HOUR);member(db,'u-c',26800,start+HOUR);
+  income.settle(db,start+DAY+HOUR);assert.equal(db.poolSettlements[0].poolCents,237900);
+  income.settle(db,start+2*DAY+HOUR);assert.equal(db.poolSettlements[1].poolCents,0);assert.equal(db.earnings.filter(e=>e.poolSettlementId==='pool:D:2026-10-19').length,0);
+  checks.push('sales mode: the pool is 5% of VIP card sales paid within the period (47,580 → 2,379; no sales → 0)');
+
+  db=fixture();enable(db,{cycle:'monthly'});member(db,'u-a',6980,start+HOUR);
+  const nov=Date.parse('2026-11-01T00:00:00+08:00');income.settle(db,nov-1);assert.equal(db.poolSettlements.length,0);
+  income.settle(db,nov+1);assert.equal(db.poolSettlements[0].label,'2026-10-18 至 2026-10-31');
+  db=fixture();enable(db,{cycle:'weekly'});member(db,'u-a',6980,start+HOUR);income.settle(db,start+7*DAY+1);assert.equal(db.poolSettlements[0].label,'2026-10-18 至 2026-10-24');
+  db=fixture();enable(db);member(db,'u-a',6980,start+HOUR);income.settle(db,start+3*DAY+HOUR);assert.equal(db.poolSettlements.length,3);
+  checks.push('Beijing-time daily, weekly and calendar-month periods; missed periods are caught up after downtime');
+
+  db=fixture();assert.equal(enable(db,{startDate:'2026-10-01'},start+HOUR).startDate,D0);
+  member(db,'u-a',6980,start-10*DAY);income.settle(db,start+2*DAY+HOUR);assert.equal(db.poolSettlements[0].periodKey,'D:2026-10-18');
+  income.managePool(db,pool({revision:1,enabled:false}),'t',start+2*DAY+2*HOUR);income.settle(db,start+5*DAY);
+  const off=db.poolSettlements.length;const back=income.managePool(db,pool({revision:2}),'t',start+5*DAY+HOUR);
+  assert.equal(back.startDate,'2026-10-23');income.settle(db,start+6*DAY+HOUR);assert.equal(db.poolSettlements.length,off+1);assert.equal(db.poolSettlements.at(-1).periodKey,'D:2026-10-23');
+  checks.push('no backfill: past start dates move to today, and re-enabling skips the days it was off');
+
+  db=fixture();enable(db);member(db,'u-a',6980,start+HOUR);income.settle(db,start+2*DAY+HOUR);
+  const weekly=income.managePool(db,pool({revision:1,cycle:'weekly'}),'t',start+2*DAY+2*HOUR);
+  assert.equal(weekly.startDate,'2026-10-20');income.settle(db,start+9*DAY+HOUR);
+  const spans=db.poolSettlements.map(s=>[Date.parse(s.start),Date.parse(s.end)]);for(let i=1;i<spans.length;i++)assert.ok(spans[i][0]>=spans[i-1][1]);
+  checks.push('switching cycle never overlaps a settled period, so no member is paid twice for the same days');
+
+  db=fixture();income.manage(db,'PUT','vip',{revision:0,static:{enabled:true,mode:'fixed',value:10,trigger:'paid',delayDays:0,intervalDays:1,periods:1},dynamic:[],refundPolicy:'reverse'},'t');
+  assert.equal(income.publicRules(db).length,1);enable(db);assert.equal(income.publicRules(db).length,0);
+  db.users.push({id:'buyer'});const o={id:'pkg',userId:'buyer',productId:'vip',product:{...vip},total:6980,status:'ready',paymentStatus:'paid',paidAt:new Date(start+HOUR).toISOString()};income.snapshot(db,o);db.orders.push(o);income.activate(db,o);
+  assert.equal(db.incomePlans.filter(p=>p.type==='static').length,0);
+  checks.push('while the pool is on, package static income is replaced for new orders and hidden from checkout');
+
+  const total=income.allocate(100,new Map([['a',1],['b',1],['c',1]]));assert.deepEqual(total.map(r=>r.cents),[34,33,33]);
+  assert.deepEqual(income.allocate(0,new Map([['a',1]])),[]);assert.deepEqual(income.allocate(100,new Map()),[]);
+  db=fixture();assert.throws(()=>enable(db,{revision:3}),/其他管理员/);
+  for(const bad of [{percent:101},{percent:0},{baseAmount:-1},{baseAmount:0},{cycle:'yearly'},{source:'x'},{startDate:'2026-02-30'},{enabled:'yes'}])assert.throws(()=>enable(fixture(),bad));
+  checks.push('cent allocation is exact; invalid values and stale edits are rejected');
+})();
+
+const root=path.resolve(__dirname,'..'),dir=fs.mkdtempSync(path.join(os.tmpdir(),'anqi-pool-')),file=path.join(dir,'db.json'),secret=crypto.randomBytes(24).toString('hex');let child,base;
+async function req(route,method='GET',data,token,status=200,admin=false){const r=await fetch(base+route,{method,headers:{'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{}),...(admin?{'x-anqi-internal':secret}:{})},body:data===undefined?undefined:JSON.stringify(data)});const b=await r.json();assert.equal(r.status,status,`${method} ${route}: ${JSON.stringify(b)}`);return b}
+const admin=(route,method='GET',data,status=200)=>req('/admin/'+route,method,data,null,status,true);
+async function startServer(offset=0){const socket=net.createServer().listen(0,'127.0.0.1');await once(socket,'listening');const port=socket.address().port;await new Promise(r=>socket.close(r));base=`http://127.0.0.1:${port}/api`;child=spawn(process.execPath,['--require',path.join(__dirname,'test-clock.cjs'),'server/index.cjs'],{cwd:root,env:{...process.env,ANQI_TEST_CLOCK_OFFSET_MS:String(offset),HOST:'127.0.0.1',PORT:String(port),DATA_FILE:file,DB_NAME:process.env.POOL_TEST_DB_NAME||'',NODE_ENV:'test',DEMO_MODE:'false',WECHAT_MOCK:'true',ADMIN_PASSWORD:secret,INTERNAL_SECRET:secret,PAYMENT_MODE:'off'},stdio:['ignore','ignore','pipe']});let errors='';child.stderr.on('data',b=>errors+=b);for(let i=0;i<100;i++){if(child.exitCode!==null)throw Error(errors);try{if((await fetch(base+'/health')).ok)return}catch{}await new Promise(r=>setTimeout(r,50))}throw Error(errors||'startup timeout')}
+async function stop(){if(child&&child.exitCode===null){const done=once(child,'exit');child.kill();await done}}
+(async()=>{
+  if(process.env.POOL_TEST_DB_NAME&&!/^anqi_audit_[a-zA-Z0-9_]+$/.test(process.env.POOL_TEST_DB_NAME))throw Error('Use a dedicated anqi_audit_ database');
+  fs.writeFileSync(file,JSON.stringify(seed()));await startServer();
+  const boot=await req('/bootstrap'),store=boot.stores[0].id,card=boot.products.find(p=>p.packagePlans?.length);
+  const rules=await admin('incomeRules');assert.equal(rules.pool.enabled,false);assert.equal(rules.poolOverview.members,0);
+  await admin('incomeRules/pool','PUT',pool({revision:5,startDate:''}),409);
+  const saved=await admin('incomeRules/pool','PUT',pool({startDate:''}));
+  const today=new Date(Date.now()+8*HOUR).toISOString().slice(0,10);assert.equal(saved.startDate,today);
+  // 把服务时钟拨到明天凌晨 1 点 / 2 点（北京时间），恰好跨过一个结算日
+  const tomorrow=Date.parse(today+'T00:00:00+08:00')+DAY;
+  const plan=card.packagePlans[0],selection={planId:plan.id,groups:Object.fromEntries(plan.groups.map(g=>[g.id,g.services.slice(0,g.pick).map(s=>({serviceId:s.id,...(s.options?.length?{option:s.options[0]}:{})}))]))};
+  const buyers=[];
+  for(const i of [1,2,3]){const u=await req('/auth/wechat','POST',{code:'pool-'+i+'-'+Date.now()});const o=await req('/orders','POST',{productId:card.id,quantity:1,spec:'single',storeId:store,packageSelection:selection},u.token);await admin('orders/'+o.id,'POST',{action:'confirmPayment',note:'分红池验收'});buyers.push({u,o})}
+  assert.equal((await admin('incomeRules')).poolOverview.members,3);
+  assert.equal((await req('/earnings-summary','GET',undefined,buyers[0].u.token)).static,0);
+  await stop();await startServer(tomorrow+HOUR-Date.now());
+  const overview=(await admin('incomeRules')).poolOverview;assert.equal(overview.settlements.length,1);
+  assert.deepEqual([overview.settlements[0].members,overview.settlements[0].distributedCents],[3,500000]);
+  const each=(await req('/earnings-summary','GET',undefined,buyers[0].u.token)).static;assert.ok(Math.abs(each-5000/3)<0.02,String(each));
+  assert.match((await req('/earnings','GET',undefined,buyers[0].u.token)).map(e=>e.name).join(),/分红池/);
+  await stop();await startServer(tomorrow+2*HOUR-Date.now());assert.equal((await admin('incomeRules')).poolOverview.settlements.length,1);
+  checks.push('API: after the first day ends the running service settles 5,000.00 across 3 card holders once (about 1,666.67 each), and a restart does not repeat it');
+  console.log(JSON.stringify({ok:true,checks},null,2));
+})().catch(e=>{console.error(e.stack);process.exitCode=1}).finally(async()=>{await stop();fs.rmSync(dir,{recursive:true,force:true})});
