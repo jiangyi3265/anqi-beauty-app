@@ -35,7 +35,9 @@ function manageReferral(db, body, actor) {
 }
 // 分红池（静态收益）：每个结算周期拿出一笔奖池，按办卡金额占比分给全部办卡会员。
 // 周期按北京时间划分，周期结束后结算一次；保存在 config，结算记录在 poolSettlements。
-const POOL_DEFAULTS = { revision:0, enabled:false, source:'fixed', baseAmount:100000, percent:5, cycle:'daily', startDate:'' };
+// source: revenue=本期营业额（全部已付款订单）× 比例；sales=本期新增办卡金额 × 比例；fixed=固定基数 × 比例
+// activityDays>0：每 N 天一轮活动，每天只分给本轮开始以来办卡的会员（第1天当天，第2天第1–2天……），下一轮重新计算
+const POOL_DEFAULTS = { revision:0, enabled:false, source:'revenue', baseAmount:100000, percent:5, cycle:'daily', activityDays:3, startDate:'' };
 const HOUR8 = 8*3600000;
 const beijingDate = ms => new Date(ms+HOUR8).toISOString().slice(0,10);
 const beijingStart = date => Date.parse(date+'T00:00:00+08:00');
@@ -53,19 +55,27 @@ function nextPeriod(rule, start) {
 function heldAt(o, end) {
   return o.paymentStatus==='paid'&&Date.parse(o.paidAt)<end&&!['cancelled','pending'].includes(o.status)&&!(o.refundStatus==='refunded'&&!(Date.parse(o.refundAt)>=end));
 }
-function poolHolders(db, end) {
+function activityWindow(rule, periodStart) {
+  if(!(rule.activityDays>0)||rule.cycle!=='daily')return null;
+  const anchor=beijingStart(rule.startDate),len=rule.activityDays*DAY,start=anchor+Math.floor((periodStart-anchor)/len)*len;
+  return { round:Math.floor((start-anchor)/len)+1, day:Math.floor((periodStart-start)/DAY)+1, days:rule.activityDays, start, end:start+len };
+}
+function poolHolders(db, end, since=-Infinity) {
   const weights=new Map();
   for(const o of db.orders||[]) {
-    if(!o.product?.packagePlans?.length||!heldAt(o,end))continue;
+    if(!o.product?.packagePlans?.length||!heldAt(o,end)||Date.parse(o.paidAt)<since)continue;
     const user=db.users.find(u=>u.id===o.userId);if(!user||user.disabled)continue;
     const cents=Math.round(Number(o.total)*100);if(Number.isSafeInteger(cents)&&cents>0)weights.set(o.userId,(weights.get(o.userId)||0)+cents);
   }
   return weights;
 }
+// 本期收入：期内付款、且期末前未退款的订单实付合计；revenue 计全部订单，sales 只计VIP套餐
+function periodIncome(db, rule, start, end) {
+  return (db.orders||[]).filter(o=>(rule.source==='revenue'||o.product?.packagePlans?.length)&&heldAt(o,end)&&Date.parse(o.paidAt)>=start).reduce((n,o)=>n+Math.round(Number(o.total)*100),0);
+}
 function poolCents(db, rule, period) {
-  if(rule.source==='fixed') return Number((BigInt(Math.round(rule.baseAmount*100))*BigInt(Math.round(rule.percent*100))+5000n)/10000n);
-  const sales=(db.orders||[]).filter(o=>o.product?.packagePlans?.length&&heldAt(o,period.end)&&Date.parse(o.paidAt)>=period.start).reduce((n,o)=>n+Math.round(Number(o.total)*100),0);
-  return Number((BigInt(sales)*BigInt(Math.round(rule.percent*100))+5000n)/10000n);
+  const base=rule.source==='fixed'?Math.round(rule.baseAmount*100):periodIncome(db,rule,period.start,period.end);
+  return Number((BigInt(base)*BigInt(Math.round(rule.percent*100))+5000n)/10000n);
 }
 // 按权重分到分，余数按小数部分从大到小补齐，总额恰好等于奖池
 function allocate(total, weights) {
@@ -82,10 +92,10 @@ function settlePool(db, now=Date.now(), limit=400) {
     const period=nextPeriod(rule,start);if(period.end>now)break;
     const id='pool:'+period.key;
     if(!db.poolSettlements.some(s=>s.id===id)) {
-      const holders=poolHolders(db,period.end),amount=poolCents(db,rule,period),rows=allocate(amount,holders),createdAt=new Date(now).toISOString();
-      const cycleText={daily:'每天',weekly:'每周',monthly:'每月'}[rule.cycle];
+      const win=activityWindow(rule,period.start),holders=poolHolders(db,period.end,win?win.start:-Infinity),amount=poolCents(db,rule,period),rows=allocate(amount,holders),createdAt=new Date(now).toISOString();
+      const cycleText=win?`第${win.round}轮活动第${win.day}天`:{daily:'每天',weekly:'每周',monthly:'每月'}[rule.cycle];
       for(const r of rows.filter(r=>r.cents>0)) db.earnings.push({id:crypto.randomUUID(),accrualKey:`${id}:${r.userId}`,poolSettlementId:id,userId:r.userId,type:'static',source:'pool',level:0,period:1,revision:rule.revision,kind:'credit',amountCents:r.cents,amount:r.cents/100,name:`分红池 ${period.label}（${cycleText}）`,dueAt:new Date(period.end).toISOString(),createdAt});
-      db.poolSettlements.push({id,periodKey:period.key,label:period.label,cycle:rule.cycle,source:rule.source,start:new Date(period.start).toISOString(),end:new Date(period.end).toISOString(),poolCents:amount,distributedCents:rows.reduce((n,r)=>n+r.cents,0),members:holders.size,totalWeightCents:[...holders.values()].reduce((n,w)=>n+w,0),revision:rule.revision,createdAt});
+      db.poolSettlements.push({id,periodKey:period.key,label:period.label,cycle:rule.cycle,source:rule.source,start:new Date(period.start).toISOString(),end:new Date(period.end).toISOString(),poolCents:amount,distributedCents:rows.reduce((n,r)=>n+r.cents,0),members:holders.size,totalWeightCents:[...holders.values()].reduce((n,w)=>n+w,0),...(win?{activityRound:win.round,activityDay:win.day,activityStart:new Date(win.start).toISOString()}:{}),revision:rule.revision,createdAt});
       settled++;
     }
     start=period.end;
@@ -96,9 +106,10 @@ function managePool(db, body, actor, now=Date.now()) {
   const previous=poolRule(db),today=beijingDate(now);
   if (body.revision !== previous.revision) fail('规则已被其他管理员修改，请刷新后再编辑',409);
   if (typeof body.enabled !== 'boolean') fail('请设置分红池开关');
-  if (!['fixed','sales'].includes(body.source)) fail('请选择奖池来源');
+  if (!['revenue','sales','fixed'].includes(body.source)) fail('请选择奖池来源');
   if (!['daily','weekly','monthly'].includes(body.cycle)) fail('请选择结算周期');
-  const baseAmount=amount(body.baseAmount,100000000,'奖池基数'),percent=amount(body.percent,100,'奖池比例');
+  const baseAmount=amount(body.baseAmount,100000000,'奖池基数'),percent=amount(body.percent,100,'奖池比例'),activityDays=integer(body.activityDays??previous.activityDays,0,365,'活动天数');
+  if (activityDays>0 && body.cycle!=='daily') fail('分轮活动需要按天结算，请把结算周期设为每天或把活动天数设为0');
   if (body.enabled && (percent<=0 || (body.source==='fixed'&&baseAmount<=0))) fail('启用分红池时奖池金额必须大于0');
   let startDate=body.startDate||'';
   if (startDate && !validDay(startDate)) fail('开始日期无效');
@@ -108,14 +119,18 @@ function managePool(db, body, actor, now=Date.now()) {
     if (!startDate || (!unchanged && startDate<today)) startDate=today;
     const settledUntil=lastSettledEnd(db);if(settledUntil&&beijingStart(startDate)<settledUntil)startDate=beijingDate(settledUntil);
   }
-  const row={revision:previous.revision+1,enabled:body.enabled,source:body.source,baseAmount,percent,cycle:body.cycle,startDate,updatedAt:new Date(now).toISOString()};
+  const row={revision:previous.revision+1,enabled:body.enabled,source:body.source,baseAmount,percent,cycle:body.cycle,activityDays,startDate,updatedAt:new Date(now).toISOString()};
   db.config ||= {}; db.config.poolReward=row;
   db.audit ||= [];db.audit.unshift({id:crypto.randomUUID(),actor,resource:'incomeRules',target:'pool',method:'PUT',revision:row.revision,createdAt:row.updatedAt});
   return row;
 }
 function poolOverview(db, now=Date.now()) {
-  const rule=poolRule(db),holders=poolHolders(db,now),start=rule.enabled&&validDay(rule.startDate)?Math.max(beijingStart(rule.startDate),lastSettledEnd(db)):0;
-  return { members:holders.size, totalWeight:[...holders.values()].reduce((n,w)=>n+w,0)/100, nextSettlementAt:start?new Date(nextPeriod(rule,start).end).toISOString():'', settlements:(db.poolSettlements||[]).slice(-90).reverse() };
+  const rule=poolRule(db),start=rule.enabled&&validDay(rule.startDate)?Math.max(beijingStart(rule.startDate),lastSettledEnd(db)):0;
+  const period=start?nextPeriod(rule,start):null,current=period&&period.start<=now?{start:period.start,end:Math.min(now,period.end)}:null;
+  const win=period?activityWindow(rule,period.start):null,holders=poolHolders(db,now+1,win?win.start:-Infinity);
+  const income=current&&rule.source!=='fixed'?periodIncome(db,rule,current.start,current.end+1)/100:0;
+  return { activity:win?{round:win.round,day:win.day,days:win.days,start:new Date(win.start).toISOString()}:null, members:holders.size, totalWeight:[...holders.values()].reduce((n,w)=>n+w,0)/100, nextSettlementAt:period?new Date(period.end).toISOString():'',
+    currentIncome:income, estimatedPool:current?poolCents(db,rule,{start:current.start,end:current.end+1})/100:0, settlements:(db.poolSettlements||[]).slice(-90).reverse() };
 }
 function manage(db, method, productId, body, actor) {
   init(db);

@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('nod
 const {spawn}=require('node:child_process'),{once}=require('node:events'),income=require('../server/income.cjs'),seed=require('../server/seed.cjs');
 const checks=[],DAY=86400000,HOUR=3600000;
 const D0='2026-10-18',start=Date.parse(D0+'T00:00:00+08:00');
-const pool=(o={})=>({revision:0,enabled:true,source:'fixed',baseAmount:100000,percent:5,cycle:'daily',startDate:D0,...o});
+const pool=(o={})=>({revision:0,enabled:true,source:'fixed',baseAmount:100000,percent:5,cycle:'daily',activityDays:0,startDate:D0,...o});
 const vip={id:'vip',name:'黄金VIP套餐',packagePlans:[{}]};
 let n=0;
 function fixture(){return {config:{},products:[vip,{id:'kit',name:'焕颜套'}],users:[],orders:[],earnings:[],incomeRules:[],incomePlans:[],poolSettlements:[]}}
@@ -13,9 +13,9 @@ const cents=(db,uid)=>db.earnings.filter(e=>e.userId===uid&&e.source==='pool').r
 
 (function unit(){
   let db=fixture();
-  assert.deepEqual(income.poolRule(db),{revision:0,enabled:false,source:'fixed',baseAmount:100000,percent:5,cycle:'daily',startDate:''});
+  assert.deepEqual(income.poolRule(db),{revision:0,enabled:false,source:'revenue',baseAmount:100000,percent:5,cycle:'daily',activityDays:3,startDate:''});
   member(db,'u-a',6980,start+HOUR);income.settle(db,start+2*DAY);assert.equal(db.poolSettlements.length,0);
-  checks.push('defaults: fixed 100,000 × 5%, daily, disabled until an administrator enables it');
+  checks.push('defaults: 5% of each day\'s revenue, daily, 3-day activity rounds, disabled until an administrator enables it');
 
   db=fixture();enable(db);
   member(db,'u-a',6980,start+HOUR);member(db,'u-b',13800,start+2*HOUR);member(db,'u-c',26800,start+3*HOUR);
@@ -56,6 +56,29 @@ const cents=(db,uid)=>db.earnings.filter(e=>e.userId===uid&&e.source==='pool').r
   income.settle(db,start+DAY+HOUR);assert.equal(db.poolSettlements[0].poolCents,237900);
   income.settle(db,start+2*DAY+HOUR);assert.equal(db.poolSettlements[1].poolCents,0);assert.equal(db.earnings.filter(e=>e.poolSettlementId==='pool:D:2026-10-19').length,0);
   checks.push('sales mode: the pool is 5% of VIP card sales paid within the period (47,580 → 2,379; no sales → 0)');
+
+  db=fixture();enable(db,{source:'revenue'});
+  member(db,'u-a',6980,start+HOUR);member(db,'u-b',13800,start+HOUR);member(db,'u-c',26800,start+HOUR);
+  member(db,'k',1980,start+2*HOUR,{productId:'kit'});member(db,'p',9999,start+2*HOUR,{productId:'kit',paymentStatus:'unpaid',status:'pending'});
+  member(db,'r',5000,start+2*HOUR,{productId:'kit',refundStatus:'refunded',status:'aftersale',refundAt:new Date(start+3*HOUR).toISOString()});
+  income.settle(db,start+DAY+HOUR);
+  assert.equal(db.poolSettlements[0].poolCents,247800);assert.equal(db.poolSettlements[0].distributedCents,247800);
+  assert.deepEqual(db.earnings.filter(e=>e.source==='pool').map(e=>e.userId).sort(),['u-a','u-b','u-c']);
+  income.settle(db,start+2*DAY+HOUR);assert.equal(db.poolSettlements[1].poolCents,0);
+  checks.push('revenue mode (default): 5% of all paid orders that day, including ordinary products (49,560 → 2,478.00), shared only by card holders; unpaid and refunded orders excluded');
+
+  db=fixture();enable(db,{source:'revenue',activityDays:3});
+  member(db,'old',99999,start-2*DAY);
+  member(db,'a',6980,start+HOUR);member(db,'k',1980,start+2*HOUR,{productId:'kit'});
+  member(db,'b',13800,start+DAY+HOUR);member(db,'c',26800,start+2*DAY+HOUR);member(db,'d',6980,start+3*DAY+HOUR);member(db,'k',1000,start+4*DAY+HOUR,{productId:'kit'});
+  income.settle(db,start+5*DAY+HOUR);
+  const days=db.poolSettlements.map(x=>({label:x.label,round:x.activityRound,day:x.activityDay,pool:x.poolCents,who:db.earnings.filter(e=>e.poolSettlementId===x.id).map(e=>e.userId).sort().join('')}));
+  assert.deepEqual(days.map(d=>[d.round,d.day,d.pool,d.who]),[[1,1,44800,'a'],[1,2,69000,'ab'],[1,3,134000,'abc'],[2,1,34900,'d'],[2,2,5000,'d']]);
+  assert.equal(db.earnings.filter(e=>e.poolSettlementId===db.poolSettlements[1].id).reduce((n,e)=>n+e.amountCents,0),69000);
+  assert.match(db.earnings.find(e=>e.poolSettlementId===db.poolSettlements[1].id).name,/第1轮活动第2天/);
+  assert.equal(db.earnings.some(e=>e.userId==='old'),false);
+  assert.throws(()=>income.managePool(fixture(),pool({activityDays:3,cycle:'weekly'}),'x',start+HOUR),/按天结算/);
+  checks.push('3-day rounds: day 1 pays day-1 card buyers, day 2 pays day-1 and day-2 buyers, day 3 pays days 1-3, day 4 starts a new round; members from before the round do not share');
 
   db=fixture();enable(db,{cycle:'monthly'});member(db,'u-a',6980,start+HOUR);
   const nov=Date.parse('2026-11-01T00:00:00+08:00');income.settle(db,nov-1);assert.equal(db.poolSettlements.length,0);
@@ -101,21 +124,22 @@ async function stop(){if(child&&child.exitCode===null){const done=once(child,'ex
   const boot=await req('/bootstrap'),store=boot.stores[0].id,card=boot.products.find(p=>p.packagePlans?.length);
   const rules=await admin('incomeRules');assert.equal(rules.pool.enabled,false);assert.equal(rules.poolOverview.members,0);
   await admin('incomeRules/pool','PUT',pool({revision:5,startDate:''}),409);
-  const saved=await admin('incomeRules/pool','PUT',pool({startDate:''}));
+  const saved=await admin('incomeRules/pool','PUT',pool({source:'revenue',activityDays:3,startDate:''}));
   const today=new Date(Date.now()+8*HOUR).toISOString().slice(0,10);assert.equal(saved.startDate,today);
   // 把服务时钟拨到明天凌晨 1 点 / 2 点（北京时间），恰好跨过一个结算日
   const tomorrow=Date.parse(today+'T00:00:00+08:00')+DAY;
   const plan=card.packagePlans[0],selection={planId:plan.id,groups:Object.fromEntries(plan.groups.map(g=>[g.id,g.services.slice(0,g.pick).map(s=>({serviceId:s.id,...(s.options?.length?{option:s.options[0]}:{})}))]))};
   const buyers=[];
   for(const i of [1,2,3]){const u=await req('/auth/wechat','POST',{code:'pool-'+i+'-'+Date.now()});const o=await req('/orders','POST',{productId:card.id,quantity:1,spec:'single',storeId:store,packageSelection:selection},u.token);await admin('orders/'+o.id,'POST',{action:'confirmPayment',note:'分红池验收'});buyers.push({u,o})}
-  assert.equal((await admin('incomeRules')).poolOverview.members,3);
+  const live=(await admin('incomeRules')).poolOverview,sales=buyers.reduce((n,b)=>n+b.o.total,0);assert.equal(live.members,3);
+  assert.equal(live.currentIncome,sales);assert.deepEqual([live.activity.round,live.activity.day],[1,1]);assert.equal(live.estimatedPool,Math.round(sales*5)/100);
   assert.equal((await req('/earnings-summary','GET',undefined,buyers[0].u.token)).static,0);
   await stop();await startServer(tomorrow+HOUR-Date.now());
   const overview=(await admin('incomeRules')).poolOverview;assert.equal(overview.settlements.length,1);
-  assert.deepEqual([overview.settlements[0].members,overview.settlements[0].distributedCents],[3,500000]);
-  const each=(await req('/earnings-summary','GET',undefined,buyers[0].u.token)).static;assert.ok(Math.abs(each-5000/3)<0.02,String(each));
+  assert.deepEqual([overview.settlements[0].members,overview.settlements[0].distributedCents],[3,Math.round(sales*5)]);
+  const each=(await req('/earnings-summary','GET',undefined,buyers[0].u.token)).static;assert.ok(Math.abs(each-sales*0.05/3)<0.02,String(each));
   assert.match((await req('/earnings','GET',undefined,buyers[0].u.token)).map(e=>e.name).join(),/分红池/);
   await stop();await startServer(tomorrow+2*HOUR-Date.now());assert.equal((await admin('incomeRules')).poolOverview.settlements.length,1);
-  checks.push('API: after the first day ends the running service settles 5,000.00 across 3 card holders once (about 1,666.67 each), and a restart does not repeat it');
+  checks.push(`API (default revenue mode): the day's revenue ${sales} gives a live estimate of ${Math.round(sales*5)/100}; after midnight the running service settles it once across 3 card holders, and a restart does not repeat it`);
   console.log(JSON.stringify({ok:true,checks},null,2));
 })().catch(e=>{console.error(e.stack);process.exitCode=1}).finally(async()=>{await stop();fs.rmSync(dir,{recursive:true,force:true})});
