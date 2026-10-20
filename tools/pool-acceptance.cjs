@@ -120,12 +120,14 @@ async function startServer(offset=0){const socket=net.createServer().listen(0,'1
 async function stop(){if(child&&child.exitCode===null){const done=once(child,'exit');child.kill();await done}}
 (async()=>{
   if(process.env.POOL_TEST_DB_NAME&&!/^anqi_audit_[a-zA-Z0-9_]+$/.test(process.env.POOL_TEST_DB_NAME))throw Error('Use a dedicated anqi_audit_ database');
-  fs.writeFileSync(file,JSON.stringify(seed()));await startServer();
+  // 接口验收固定在北京时间当天中午进行：午夜附近运行时，拨到“明天凌晨”会超过 24 小时登录有效期
+  const NOON=Date.parse(new Date(Date.now()+8*HOUR).toISOString().slice(0,10)+'T12:00:00+08:00')-Date.now();
+  fs.writeFileSync(file,JSON.stringify(seed()));await startServer(NOON);
   const boot=await req('/bootstrap'),store=boot.stores[0].id,card=boot.products.find(p=>p.packagePlans?.length);
   const rules=await admin('incomeRules');assert.equal(rules.pool.enabled,false);assert.equal(rules.poolOverview.members,0);
   await admin('incomeRules/pool','PUT',pool({revision:5,startDate:''}),409);
   const saved=await admin('incomeRules/pool','PUT',pool({source:'revenue',activityDays:3,startDate:''}));
-  const today=new Date(Date.now()+8*HOUR).toISOString().slice(0,10);assert.equal(saved.startDate,today);
+  const today=new Date(Date.now()+NOON+8*HOUR).toISOString().slice(0,10);assert.equal(saved.startDate,today);
   // 把服务时钟拨到明天凌晨 1 点 / 2 点（北京时间），恰好跨过一个结算日
   const tomorrow=Date.parse(today+'T00:00:00+08:00')+DAY;
   const plan=card.packagePlans[0],selection={planId:plan.id,groups:Object.fromEntries(plan.groups.map(g=>[g.id,g.services.slice(0,g.pick).map(s=>({serviceId:s.id,...(s.options?.length?{option:s.options[0]}:{})}))]))};
