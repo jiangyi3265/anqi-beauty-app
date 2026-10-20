@@ -47,12 +47,14 @@ function rfc3339(ms) { return new Date(ms + 8 * 3600000).toISOString().slice(0, 
 function clip(text, fallback, maxBytes) { let s = String(text || '').trim() || fallback; while (Buffer.byteLength(s) > maxBytes) s = s.slice(0, -1); return s; }
 
 // 微信支付公钥（PUB_KEY_ID_ 开头）优先；未配置时自动下载并缓存平台证书
-const platformKeys = new Map(); let platformLoadedAt = 0;
+const platformKeys = new Map(); let platformLoadedAt = 0, platformTriedAt = 0;
 async function publicKeyFor(serial) {
   const c = config();
   if (c.publicKeyId && serial === c.publicKeyId) return crypto.createPublicKey(c.publicKey);
   if (/^PUB_KEY_ID_/.test(serial)) return null;
-  if (!platformKeys.has(serial) || Date.now() - platformLoadedAt > 12 * 3600000) await loadCertificates();
+  // 未知编号最多每分钟去微信更新一次平台证书，防止伪造请求反复触发下载
+  const stale = Date.now() - platformLoadedAt > 12 * 3600000;
+  if ((stale || !platformKeys.has(serial)) && Date.now() - platformTriedAt > 60000) { platformTriedAt = Date.now(); await loadCertificates(); }
   return platformKeys.get(serial) || null;
 }
 function decrypt({ algorithm, ciphertext, associated_data = '', nonce: iv }) {

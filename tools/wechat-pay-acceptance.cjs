@@ -187,7 +187,8 @@ const verifyPaySign = p => crypto.createVerify('RSA-SHA256').update(`${p.appId}\
   assert.equal((await req('/health')).paymentMode, 'off');
   const fresh = await login('wxpay-off'); const o10 = await order(service, fresh.token);
   const off = await pay(o10, fresh.token, 503); assert.match(off.error, /未开通在线支付/);
-  checks.push('商户配置不全时自动保持“门店收款”，在线支付接口拒绝调用，不会生成预支付单');
+  const notifyOff = await fetch(base + '/pay/notify', { method: 'POST', body: '{}' }); assert.equal(notifyOff.status, 404); assert.match((await notifyOff.json()).error, /微信支付未开通/);
+  checks.push('商户配置不全时自动保持“门店收款”，在线支付接口拒绝调用，不会生成预支付单；回调地址返回“微信支付未开通”');
   await stop(); await sim.stop();
 
   // 11. 平台证书模式（未配置微信支付公钥的老商户）

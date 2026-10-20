@@ -46,7 +46,16 @@ server {
 '''
  extra=''
  if host=='anqiht.okam.top':
-  extra='''location ^~ /prod-api/ {
+  extra='''location = /api/pay/notify {
+ proxy_pass http://127.0.0.1:3016;
+ proxy_set_header Host $host;
+ proxy_set_header X-Real-IP $remote_addr;
+ proxy_set_header X-Forwarded-For $remote_addr;
+ proxy_set_header X-Forwarded-Proto https;
+ proxy_read_timeout 30s;
+ client_max_body_size 64k;
+ }
+ location ^~ /prod-api/ {
  proxy_pass http://127.0.0.1:8097/;
  proxy_set_header Host $host;
  proxy_set_header X-Real-IP $remote_addr;

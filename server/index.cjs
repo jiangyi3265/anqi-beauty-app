@@ -577,7 +577,7 @@ const server = http.createServer(async (req,res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
   try {
     const url = new URL(req.url,'http://localhost');
-    if (url.pathname === '/api/pay/notify' && req.method === 'POST') return wechatNotify(req,res);
+    if (url.pathname === '/api/pay/notify' && req.method === 'POST') { if (!WECHAT_PAY) fail('微信支付未开通',404); return wechatNotify(req,res); }
     if (url.pathname.startsWith('/api/')) { const payload=['POST','PUT'].includes(req.method)?await body(req):{};let result=WECHAT_PAY?await wechatRoute(req,url,payload):undefined;if(result===undefined)result=await txn(()=>route(req,url,payload)); if(result?.httpStatus){res.statusCode=result.httpStatus;delete result.httpStatus;} res.setHeader('Content-Type','application/json; charset=utf-8'); res.setHeader('Cache-Control','no-store'); return res.end(JSON.stringify(result,(key,value)=>key==='incomeSnapshot'?undefined:value)); }
     if (url.pathname === '/admin' || url.pathname.startsWith('/admin/')) fail('请使用若依管理端',404);
     const isStatic = url.pathname.startsWith('/static/');
