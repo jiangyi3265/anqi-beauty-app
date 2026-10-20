@@ -1,0 +1,146 @@
+{
+  "status": "published_1.1.27",
+  "stores": [
+    {
+      "name": "秀容美容·建业店",
+      "address": "商丘市南京路星林路交叉口建业桂园小区27# 商铺",
+      "phone": "18639035033"
+    },
+    {
+      "name": "秀容美容·和谐店",
+      "address": "虞城县木兰大道和谐北大花园南门商铺",
+      "phone": "18639035033"
+    }
+  ],
+  "trialExperience": [
+    {
+      "name": "9D变脸术",
+      "scope": "单部位",
+      "referenceValue": 999,
+      "existingClaimPrice": 0
+    },
+    {
+      "name": "AI大师",
+      "scope": "单部位",
+      "referenceValue": 6980,
+      "existingClaimPrice": 0
+    },
+    {
+      "name": "超玛吉",
+      "scope": "单部位",
+      "referenceValue": 6980,
+      "existingClaimPrice": 0
+    }
+  ],
+  "mallTechnologyAntiAging": {
+    "choose": 3,
+    "totalChoices": 10,
+    "items": [
+      {
+        "name": "N迪迈",
+        "scope": "眼",
+        "listedAmountPerSession": 598
+      },
+      {
+        "name": "N迪迈",
+        "scope": "面",
+        "listedAmountPerSession": 598
+      },
+      {
+        "name": "玑白",
+        "scope": "面",
+        "listedAmountPerSession": 598
+      },
+      {
+        "name": "超透白",
+        "scope": "面",
+        "listedAmountPerSession": 598
+      },
+      {
+        "name": "9D变眼术",
+        "scope": "",
+        "listedAmountPerSession": 980
+      },
+      {
+        "name": "9D变脸术",
+        "scope": "",
+        "listedAmountPerSession": 3980
+      },
+      {
+        "name": "10D童颜女神",
+        "scope": "面",
+        "listedAmountPerSession": 6980
+      },
+      {
+        "name": "光屿重启",
+        "scope": "单部位",
+        "listedAmountPerSession": 3980
+      },
+      {
+        "name": "AI大师",
+        "scope": "单部位",
+        "listedAmountPerSession": 6980
+      },
+      {
+        "name": "超玛吉",
+        "scope": "单部位",
+        "listedAmountPerSession": 6980
+      }
+    ]
+  },
+  "homepageFeatured": [
+    {
+      "name": "9D变眼术",
+      "singlePrice": 3980,
+      "coursePrice": 12800,
+      "courseSessions": 10
+    },
+    {
+      "name": "9D变脸术",
+      "singlePrice": 9800,
+      "coursePrice": 39800,
+      "courseSessions": 10
+    },
+    {
+      "name": "金钻AI大师",
+      "singlePartPrice": 6980,
+      "fullFacePriceRange": [
+        19800,
+        39800
+      ]
+    },
+    {
+      "name": "超玛吉",
+      "singlePartPrice": 6980,
+      "fullFacePrice": 29800
+    },
+    {
+      "name": "光屿重启",
+      "singlePartPrice": 3980,
+      "fullFacePrice": 6980,
+      "fullFaceSessions": 1,
+      "coursePrice": 13800,
+      "courseSessions": 3
+    }
+  ],
+  "pendingClarifications": [],
+  "liveChangesApplied": true,
+  "decisions": {
+    "stores": "新增并保留原门店",
+    "vipCard": "十选三，金额为展示价值",
+    "trialCard": "原三项保留",
+    "retailPrices": "采用首页价目，首页和下单一致",
+    "aiFullFaceRange": "仅说明区间，需门店确认方案，不创建固定价下单规格",
+    "deviceImages": "黑金AI大师与10D金钻AI大师分别匹配"
+  },
+  "verificationDirectory": "verification/xiurong-20261019",
+  "miniProgram": {
+    "version": "1.1.27",
+    "upload": "success",
+    "experienceVersion": "not_confirmed_platform_access_blocked"
+  },
+  "remainingAssets": [
+    "N迪迈（眼/面）：用项目名称占位",
+    "超透白（面）：用项目名称占位"
+  ]
+}

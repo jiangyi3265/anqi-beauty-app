@@ -1,0 +1,37 @@
+[
+  {
+    "file": "jibai.jpg",
+    "source": "/var/folders/6f/yglqz6w52v3fr367dswx7l3w0000gn/T/codex-clipboard-f6b8d0d4-88fa-4949-ac30-1c444fc6d89f.jpg",
+    "sha256": "f3d128d7533ba4795e12272be8939fbd8f93a4d007d510fe74185e882223372e"
+  },
+  {
+    "file": "9d-info.jpg",
+    "source": "/var/folders/6f/yglqz6w52v3fr367dswx7l3w0000gn/T/codex-clipboard-520f3ff8-fbbc-44dc-82a5-dff6c0d49183.jpg",
+    "sha256": "5ae6ce0f4748def5b08f5811ba71728ab30a48af920db34e820b1e6eadcbe64f"
+  },
+  {
+    "file": "gold-ai-master.jpg",
+    "source": "/var/folders/6f/yglqz6w52v3fr367dswx7l3w0000gn/T/codex-clipboard-26d925d9-d741-4ddc-bbb2-731db650080b.jpg",
+    "sha256": "68b352ebcd23e6e7300abbb390d330df24ce11c1f2f826f65657b9874d5cba8c"
+  },
+  {
+    "file": "gold-ai-reference.jpg",
+    "source": "/var/folders/6f/yglqz6w52v3fr367dswx7l3w0000gn/T/codex-clipboard-3ea5fa43-19e6-4c22-88c5-8a137726b9eb.jpg",
+    "sha256": "c7ab10a7dd19adcfcb74edbb96bd057f3519ac0f31b2f638a17615f5fbc534dc"
+  },
+  {
+    "file": "super-thermage.jpg",
+    "source": "/var/folders/6f/yglqz6w52v3fr367dswx7l3w0000gn/T/codex-clipboard-eed080bf-6770-4b77-8fcf-908eff2ec5e6.jpg",
+    "sha256": "303b0076ec1d12677b1e48ae3aa67d5b4527d85f15919c109264badb0ef6b3ba"
+  },
+  {
+    "file": "black-gold-ai-master.jpg",
+    "source": "/var/folders/6f/yglqz6w52v3fr367dswx7l3w0000gn/T/codex-clipboard-92a3d59a-deef-47f4-925f-3054bdcab38f.jpg",
+    "sha256": "695d3feeabb4f02b03de7342b824efaf05e1a62441fa537ad8527c4a9ad22979"
+  },
+  {
+    "file": "9d-face.jpg",
+    "source": "/var/folders/6f/yglqz6w52v3fr367dswx7l3w0000gn/T/codex-clipboard-1c31ee09-c18d-4890-b108-7360c15070b9.jpg",
+    "sha256": "b514f77f3b5851b62f0b905c06fd276e33589d1456e8a95a964110850197e941"
+  }
+]

@@ -58,6 +58,7 @@ function normalizeSku(value) {
   const sku = { id: text(value?.id, 80) || id(), name: text(value?.name || value?.spec || '默认规格', 80), code: text(value?.code, 80), attributes, price: Number(value?.price), stock: Number(value?.stock), image: text(value?.image, 1000), enabled: value?.enabled !== false };
   if (!Number.isFinite(sku.price) || sku.price < 0) sku.price = 0;
   if (!Number.isInteger(sku.stock) || sku.stock < 0) sku.stock = 0;
+  if (value?.serviceSessions != null) sku.serviceSessions = Number(value.serviceSessions);
   return sku;
 }
 function normalizeProduct(product) {
@@ -90,7 +91,7 @@ function normalizeProduct(product) {
   return product;
 }
 function validate(collection, b) {
-  const fields = { products: ['name','code','subtitle','brand','groupIds','keywords','gallery','image','detailImage','price','memberPrice','referencePrice','coursePrice','kind','categoryId','stock','sold','sort','status','home','recommended','hot','isNew','gift','trial','trialOnly','freeShipping','enabled','description','skus','packagePlans'], categories: ['name','sort','enabled'], stores: ['name','contact','phone','address','image','hours','enabled','schedulingEnabled','appointmentDurationMinutes'], activities: ['name','image','description','productId','startAt','endAt','enabled'], alliances: ['name','image','description','phone','enabled'], rewards: ['name','image','points','stock','enabled'], homeModules: ['type','title','subtitle','image','sort','enabled','publishStatus','targetType','targetId','description'] }[collection];
+  const fields = { products: ['name','code','subtitle','brand','groupIds','keywords','gallery','image','detailImage','price','memberPrice','referencePrice','coursePrice','kind','categoryId','stock','sold','sort','status','home','recommended','hot','isNew','gift','trial','trialOnly','freeShipping','enabled','description','skus','packagePlans'], categories: ['name','sort','enabled'], stores: ['name','contact','phone','address','image','imageCaption','gallery','hours','enabled','schedulingEnabled','appointmentDurationMinutes'], activities: ['name','image','description','productId','startAt','endAt','enabled'], alliances: ['name','image','description','phone','enabled'], rewards: ['name','image','points','stock','enabled'], homeModules: ['type','title','subtitle','image','sort','enabled','publishStatus','targetType','targetId','description'] }[collection];
   const out = Object.fromEntries(fields.filter(k => b[k] !== undefined).map(k => [k,b[k]]));
   if (collection === 'products' && b.recommended === undefined && b.home !== undefined) out.recommended = b.home === true;
   if(out.coursePrice===null)delete out.coursePrice;
@@ -106,13 +107,14 @@ function validate(collection, b) {
   if (collection === 'products' && out.status !== undefined && !['draft','published','offline'].includes(out.status)) fail('商品状态无效');
   if (collection === 'products' && out.sort !== undefined && (!Number.isInteger(out.sort) || out.sort < 0)) fail('商品排序必须为非负整数');
   if (collection === 'products' && out.skus !== undefined) {
-    if (!Array.isArray(out.skus)) fail('SKU 格式无效'); if (out.skus.some(s => !text(s?.name || s?.spec) || !Number.isFinite(Number(s?.price)) || Number(s?.price) < 0 || !Number.isInteger(Number(s?.stock)) || Number(s?.stock) < 0)) fail('每个SKU都必须填写规格名称、有效价格和库存'); out.skus = out.skus.map(normalizeSku);
+    if (!Array.isArray(out.skus)) fail('SKU 格式无效');
+    if (out.skus.some(s => s?.serviceSessions != null && (out.kind !== 'service' || !Number.isInteger(s.serviceSessions) || s.serviceSessions < 1 || s.serviceSessions > 999))) fail('服务规格次数须为1至999的整数，实物商品不能设置服务次数'); if (out.skus.some(s => !text(s?.name || s?.spec) || !Number.isFinite(Number(s?.price)) || Number(s?.price) < 0 || !Number.isInteger(Number(s?.stock)) || Number(s?.stock) < 0)) fail('每个SKU都必须填写规格名称、有效价格和库存'); out.skus = out.skus.map(normalizeSku);
     if (new Set(out.skus.map(s => s.code).filter(Boolean)).size !== out.skus.filter(s => s.code).length) fail('SKU 编码不能重复');
   }
   if (collection === 'rewards' && (out.points === undefined || out.stock === undefined)) fail('积分和库存必填');
   if (collection === 'homeModules' && (!['banner','category','product','activity','store','notice'].includes(out.type) || !['','product','category','activity','store'].includes(out.targetType || ''))) fail('首页模块类型无效'); if (collection === 'homeModules' && out.targetType && out.targetId) { const targetCollection={product:'products',category:'categories',activity:'activities',store:'stores'}[out.targetType]; if (targetCollection && !db[targetCollection].some(item=>item.id===out.targetId)) fail('首页跳转目标不存在'); }
   for (const key of ['image','detailImage']) if (out[key] && !/^(\/static\/|https:\/\/)/.test(out[key])) fail('图片使用 /static/ 路径或 HTTPS 地址');
-  if (collection === 'products' && out.gallery && (!Array.isArray(out.gallery) || out.gallery.some(v => typeof v !== 'string' || !/^(\/static\/|https:\/\/)/.test(v)))) fail('轮播图地址无效');
+  if (['products','stores'].includes(collection) && out.gallery && (!Array.isArray(out.gallery) || out.gallery.length > 20 || out.gallery.some(v => typeof v !== 'string' || !/^(\/static\/|https:\/\/)/.test(v)))) fail('轮播图地址无效');
   if (collection === 'homeModules' && out.image && !/^(\/static\/|https:\/\/)/.test(out.image)) fail('首页模块图片地址无效');
   if (['stores','alliances'].includes(collection) && out.phone && !/^1\d{10}$/.test(out.phone)) fail('请输入有效的11位手机号');
   if (collection === 'stores') { if (!text(out.address,500)) fail('请填写门店详细地址'); out.address = text(out.address,500); }
@@ -431,18 +433,21 @@ async function route(req, url, b) {
       if (previous) return previous;
     }
     const product = db.products.find(p => p.id === b.productId && p.enabled && p.status === 'published'); if (!product) fail('商品已下架');
-    if (product.trialOnly === true) fail('体验项目请通过体验卡领取后预约');
+    if (product.trialOnly === true) fail('卡券项目请领取后预约');
     if (!Number.isInteger(b.quantity) || b.quantity < 1 || b.quantity > 99) fail('数量须在1至99之间');
     const packageOrder = product.packagePlans?.length ? vipPackages.selectPackage(product, b.packageSelection) : null;
     if (packageOrder && (b.quantity !== 1 || b.spec !== 'single' || b.skuId)) fail('每笔套餐订单限购一套，请选择套餐方案');
     const sku = b.skuId ? product.skus?.find(s => s.id === b.skuId && s.enabled !== false) : (product.skus?.length ? product.skus.find(s => s.enabled !== false) : null);
     if ((b.skuId||product.skus?.length) && !sku) fail('商品规格不存在或已下架');
+    const serviceCount = product.kind === 'service' && sku?.serviceSessions != null ? sku.serviceSessions * b.quantity : 0;
+    if (serviceCount && (!Number.isInteger(serviceCount) || serviceCount < 1 || serviceCount > 999)) fail('每笔订单的服务次数须在1至999之间');
+    const courseOrder = serviceCount > 0 ? { planId: 'service-course', planName: sku.name, selections: {}, services: [{ id: 'fixed:service', name: product.name + ' · ' + sku.name, total: serviceCount, used: 0 }] } : null;
     const available = sku ? sku.stock : product.stock; if (available < b.quantity) fail('库存不足'); const store = db.stores.find(s => s.id === b.storeId && s.enabled !== false); if (!store) fail('请选择有效门店');
     if (!['single','course'].includes(b.spec)) fail('规格无效');
     const price = sku ? sku.price : (b.spec === 'course' ? product.coursePrice : (product.memberPrice??product.price)); if (!Number.isFinite(price)) fail('商品没有此规格');
     let address = null; if (product.kind === 'goods') address = { ...own('addresses',b.addressId,u) };
     const snapshot=JSON.parse(JSON.stringify(product)); if(sku) snapshot.selectedSku=JSON.parse(JSON.stringify(sku));
-    const o = { id: id(), number: Date.now().toString() + crypto.randomInt(100,999), userId: u.id, ...(idempotencyKey ? { idempotencyKey } : {}), productId: product.id, skuId: sku?.id || '', product: snapshot, ...(packageOrder ? { package: packageOrder } : {}), quantity: b.quantity, spec: b.spec, price, total: Math.round(price * b.quantity * 100) / 100, storeId: store.id, store: storeSnapshot(store), address, message: text(b.message), status: 'pending', refundStatus: '', createdAt: new Date().toISOString() };
+    const o = { id: id(), number: Date.now().toString() + crypto.randomInt(100,999), userId: u.id, ...(idempotencyKey ? { idempotencyKey } : {}), productId: product.id, skuId: sku?.id || '', product: snapshot, ...((packageOrder || courseOrder) ? { package: packageOrder || courseOrder } : {}), quantity: b.quantity, spec: b.spec, price, total: Math.round(price * b.quantity * 100) / 100, storeId: store.id, store: storeSnapshot(store), address, message: text(b.message), status: 'pending', refundStatus: '', createdAt: new Date().toISOString() };
     if (sku) { sku.stock -= b.quantity; product.stock = product.skus.filter(s=>s.enabled!==false).reduce((n,s)=>n+s.stock,0); } else product.stock -= b.quantity;
     income.snapshot(db,o);db.orders.unshift(o); save(); return o;
   }
