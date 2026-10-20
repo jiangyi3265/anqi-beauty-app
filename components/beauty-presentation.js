@@ -164,12 +164,13 @@ export default function decorateScreen(base) {
       statusText(status) { return {pending:'待付款',ready:'待使用',shipping:'待收货 / 取货',completed:'已完成',cancelled:'已取消',aftersale:'退款已登记'}[status] || status },
       orderStatus(order) { return order.status === 'ready' ? order.product?.kind === 'goods' ? '待发货 / 取货' : '待预约' : this.statusText(order.status) },
       orderNote(order) {
-        if (order.status === 'pending') return '请在下单2小时内联系门店确认付款。'
+        if (order.status === 'pending') return this.onlinePay ? '请在下单2小时内完成微信支付，超时订单自动取消。' : '请在下单2小时内联系门店确认付款。'
         if (order.status === 'cancelled') return '订单已取消，如需服务可重新下单。'
-        if (order.status === 'aftersale') return '具体到账情况请联系门店核实。'
+        if (order.status === 'aftersale') return order.wechatRefund ? {SUCCESS:'退款已原路退回微信支付账户。',PROCESSING:'退款已提交微信支付，一般1-3个工作日原路到账。',ABNORMAL:'退款到账异常，请联系门店处理。',CLOSED:'退款已关闭，请联系门店处理。'}[order.wechatRefund.status] || '退款已提交微信支付。' : '具体到账情况请联系门店核实。'
         if (order.status === 'shipping') return '商品履约进度请查看物流信息或联系门店。'
-        return order.paymentMode === 'offline' ? '门店已确认收款，服务可按项目预约。' : '订单状态以实际履约记录为准。'
+        return order.paymentMode === 'offline' ? '门店已确认收款，服务可按项目预约。' : order.paymentMode === 'wechat' ? '已通过微信支付，服务可按项目预约。' : '订单状态以实际履约记录为准。'
       },
+      refundText(order) { return order.wechatRefund ? {SUCCESS:'已原路退回',PROCESSING:'退款处理中',ABNORMAL:'退款异常',CLOSED:'退款已关闭'}[order.wechatRefund.status] || '退款处理中' : '退款已登记' },
       async cancelOrder(order) { if (order.status === 'pending' && !this.busy) this.orderToCancel = order },
       confirmCancelOrder() {
         if (!this.orderToCancel || this.busy) return
