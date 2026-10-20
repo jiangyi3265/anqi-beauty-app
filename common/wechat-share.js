@@ -1,6 +1,6 @@
 // 微信小程序右上角菜单“转发给朋友 / 分享到朋友圈 / 复制链接”。
 // 以全局 mixin 注册到每个页面（见 main.js），页面未定义这些钩子时菜单项会置灰、无法转发。
-const storeTitle = '暨美丽 · 美容用品商城'
+const storeTitle = '秀荣科技美肤 · 美容用品商城'
 // 可以原样分享的公开页面；订单、预约、资料等私有页面转发为首页。
 const publicPages = ['home', 'mall', 'discover', 'activities', 'alliances', 'stores', 'product', 'gifts']
 
@@ -19,15 +19,17 @@ function isPublic(page, screen) {
 }
 
 function shareDetails(screen) {
+  const name=screen?.config?.name||'秀荣科技美肤'
+  const storeTitle=name+' · 美容用品商城'
   const page = screen?.page || 'home'
-  const invite = screen?.inviteCode || ''
-  if (page === 'share') return { title: '邀请你来暨美丽', page: 'home', query: { invite } }
+  const invite = screen?.config?.marketingEnabled===false?'':screen?.inviteCode || ''
+  if (page === 'share') return { title: '邀请你来'+name, page: 'home', query: { invite } }
   if (!isPublic(page, screen)) return { title: storeTitle, page: 'home', query: { invite } }
   if (page === 'product') {
     const image = screen.product.image || ''
     return { title: screen.product.name || storeTitle, page, query: { id: screen.product.id, invite }, imageUrl: image.startsWith('https://') ? image : '' }
   }
-  if (page === 'gifts') return { title: '暨美丽 · 免费领取体验卡', page, query: { type: 'trial', invite } }
+  if (page === 'gifts') return { title:name+' · 免费领取体验卡', page, query: { type: 'trial', invite } }
   return { title: storeTitle, page, query: { invite } }
 }
 

@@ -109,7 +109,7 @@ module.exports = () => ({
   },
   ...trialCatalogue.map(product => ({ ...product }))
 ],
-  incomeRules: [], incomePlans: [], poolSettlements: [], staff: [], shifts: [], homeModules: [], assets: [], inventory: [], activities: [], alliances: [], users: [], orders: [], appointments: [], addresses: [], claims: [], shares: [], earnings: [], paymentAudits: [], rewards: [], ledger: [], redemptions: []
+  notifications: [], incomeRules: [], incomePlans: [], poolSettlements: [], staff: [], shifts: [], homeModules: [], assets: [], inventory: [], activities: [], alliances: [], users: [], orders: [], appointments: [], addresses: [], claims: [], shares: [], earnings: [], paymentAudits: [], rewards: [], ledger: [], redemptions: []
 })
 
 

@@ -1,10 +1,10 @@
 {
     "uniStatistics": { "enable": false },
-    "name" : "暨美丽",
+    "name" : "秀荣科技美肤",
     "appid" : "__UNI__1AD0E65",
     "description" : "",
-    "versionName" : "1.1.28",
-    "versionCode" : 132,
+    "versionName" : "1.1.30",
+    "versionCode" : 134,
     "transformPx" : false,
     /* 5+App特有相关 */
     "app-plus" : {

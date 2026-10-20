@@ -1,6 +1,6 @@
 {
   "name": "anqi-beauty-app",
-  "version": "1.1.28",
+  "version": "1.1.30",
   "private": true,
   "scripts": {
     "dev:h5": "node tools/uni.cjs -p h5 --host 127.0.0.1",
@@ -43,5 +43,5 @@
     "type": "git",
     "url": "https://github.com/jiangyi3265/anqi-beauty-app.git"
   },
-  "description": "暨美丽 UniApp 用户端及 Node.js 业务服务，配合 anqi-beauty-backend 与 anqi-beauty-admin 使用。"
+  "description": "秀荣科技美肤 UniApp 用户端及 Node.js 业务服务，配合 anqi-beauty-backend 与 anqi-beauty-admin 使用。"
 }

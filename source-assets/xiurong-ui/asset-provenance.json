@@ -1,0 +1,23 @@
+{
+  "brand": "秀荣科技美肤",
+  "approvedBoard": "/Users/jiangyi/.codex/generated_images/01a14f3b-1c5c-7383-bba6-7bd64a8a0648/xiurong-ui-design-board-index-v2.json",
+  "generatedWith": "built-in image_gen",
+  "assets": [
+    {
+      "file": "arch-room.jpg",
+      "source": "/Users/jiangyi/.codex/generated_images/01a14f3b-1c5c-7383-bba6-7bd64a8a0648/exec-0cfbcae1-acd0-4922-b739-74f6c05e9546.png"
+    },
+    {
+      "file": "silk-banner.jpg",
+      "source": "/Users/jiangyi/.codex/generated_images/01a14f3b-1c5c-7383-bba6-7bd64a8a0648/exec-7aa8df2d-d6bf-4478-88f7-4f7b4c79a3c5.png"
+    },
+    {
+      "file": "skincare-banner.jpg",
+      "source": "/Users/jiangyi/.codex/generated_images/01a14f3b-1c5c-7383-bba6-7bd64a8a0648/exec-0db151d6-cd35-4c69-99ca-8296e447c0e0.png"
+    },
+    {
+      "file": "devices.png",
+      "source": "/Users/jiangyi/.codex/generated_images/01a14f3b-1c5c-7383-bba6-7bd64a8a0648/exec-a71eb596-a70f-4463-9b95-7cbff5200a5d.png"
+    }
+  ]
+}

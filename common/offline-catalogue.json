@@ -1,0 +1,2155 @@
+{
+  "config": {
+    "name": "秀荣科技美肤",
+    "version": "1.1.30",
+    "maxGifts": 3,
+    "hero": "https://anqi.okam.top/static/brand/jimeili-1-steamed-face.jpg",
+    "welcome": "/static/assets/service-heading.jpg",
+    "brand": "https://anqi.okam.top/static/brand/brand-jimeili.png",
+    "serviceHeading": "/static/assets/service-heading.jpg",
+    "productHeading": "/static/assets/product-heading.jpg",
+    "agreement": "本协议说明您使用秀荣科技美肤小程序时的服务规则。您在注册、登录、下单、预约、领取礼品前，请核对商品、价格、库存、门店、数量和联系方式。您应遵守法律法规及平台规则，不得从事违法、欺诈、骚扰或损害他人权益的行为。订单、预约、礼品和售后以小程序及后台实时记录为准。如有疑问，请通过客服或门店渠道咨询。经营方会在法律允许范围内调整服务规则，并在小程序内公布调整内容。",
+    "privacy": "本隐私政策说明秀荣科技美肤在提供微信登录、商品购买、门店预约、订单履约、礼品领取和客服服务时的信息处理方式。我们仅在实现相应功能所必需的范围内处理微信身份标识、昵称头像、联系方式、收货地址、订单、预约和设备运行信息，不会向前端展示微信密钥或会话密钥。您可以通过个人中心、客服或门店渠道咨询、更正或删除相关信息。政策发生重大变化时，我们会在小程序内提示。正式上线前请经营方根据实际主体和业务完成审核。",
+    "subscriptionEnabled": false,
+    "messageReminderEnabled": false,
+    "marketingEnabled": true,
+    "homeImage": "https://anqi.okam.top/static/brand/hero-middle.jpg",
+    "brandLogo": "https://anqi.okam.top/static/brand/logo-jimeili.png",
+    "heroTop": "https://anqi.okam.top/static/brand/hero-top-jimeili-v2.jpg",
+    "heroBottom": "https://anqi.okam.top/static/brand/hero-bottom-v2.jpg",
+    "storeDefaultImage": "https://anqi.okam.top/static/brand/store-cover-jimeili-v2.jpg",
+    "appointmentCapacity": 1,
+    "appointmentTimes": "09:00,10:00,11:00,14:00,15:00,16:00,17:00,18:00",
+    "shortcutTrialLabel": "体验卡",
+    "shortcutVipLabel": "贵宾卡",
+    "shortcutShareLabel": "邀请码",
+    "_legacySeedActivityRemoved": true,
+    "_giftFlagsReworked": true,
+    "_giftFlagsReworkedV2": true,
+    "_giftFlagsClearedV3": true,
+    "_giftFlagsClearedV4": true,
+    "_brandVisualAndPricingV3": true,
+    "_duplicateCatalogPrunedV1": true,
+    "projectPromo": "/static/assets/service-heading.jpg",
+    "storePromo": "https://anqi.okam.top/static/brand/store-cover-jimeili-v2.jpg",
+    "customerQr": "",
+    "_categoryIdsNormalizedV1": true,
+    "pointsBanner": "/static/xiurong/silk-banner.jpg",
+    "signPoints": 100,
+    "pointsRules": "每日可签到一次，签到获得100积分。积分可用于兑换后台已上架的积分商品。",
+    "_vipCatalogSeedV1": true,
+    "_trialCatalogSeedV1": true,
+    "_trialCatalogSeedV2": true,
+    "_trialDeviceCatalogV1": true,
+    "_collagenTypeIIIPrice498V1": true,
+    "_rejuvenationSetLastV1": true,
+    "_aiLightCoverV2": true,
+    "_vipPackagesV1": true,
+    "referralReward": {
+      "revision": 1,
+      "enabled": true,
+      "firstPercent": 50,
+      "laterPercent": 10,
+      "scope": "all",
+      "trigger": "paid",
+      "delayDays": 0,
+      "durationDays": 0,
+      "refundPolicy": "reverse",
+      "updatedAt": "2026-10-18T22:36:28.446Z"
+    },
+    "poolReward": {
+      "revision": 2,
+      "enabled": true,
+      "source": "revenue",
+      "baseAmount": 100000,
+      "percent": 5,
+      "cycle": "daily",
+      "activityDays": 3,
+      "startDate": "2026-10-19",
+      "updatedAt": "2026-10-19T00:26:06.797Z"
+    },
+    "brandTagline": "科技美肤 · 私享护理",
+    "themeImage": "/static/xiurong/silk-banner.jpg",
+    "mallBanner": "/static/xiurong/skincare-banner.jpg",
+    "bookingImage": "/static/xiurong/arch-room.jpg",
+    "allianceImage": "/static/xiurong/silk-banner.jpg",
+    "homeTitle": "美好，从照顾自己开始",
+    "homeSubtitle": "科技美肤 · 私享护理",
+    "bookingTitle": "在线预约",
+    "bookingSubtitle": "专业护理 · 按需安排",
+    "vipTitle": "VIP通道",
+    "vipSubtitle": "专属服务 · 按次预约",
+    "storesTitle": "查看门店",
+    "storesSubtitle": "多店选择 · 就近服务",
+    "allianceTitle": "百业联盟",
+    "allianceSubtitle": "发现生活里的更多美好",
+    "featuredTitle": "特色项目",
+    "goodsTitle": "优选单品",
+    "shortcutAppointmentLabel": "立即预约",
+    "homeFeaturedLimit": 0,
+    "notificationTemplates": {},
+    "_xiurongLinkedUiV1": true
+  },
+  "products": [
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 1,
+      "recommended": false,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [],
+      "name": "9D变脸术",
+      "image": "https://anqi.okam.top/static/uploads/4ab782ff-cf39-4a40-9d64-e663ee504cea.jpg",
+      "detailImage": "https://anqi.okam.top/static/uploads/4ab782ff-cf39-4a40-9d64-e663ee504cea.jpg",
+      "price": 0,
+      "kind": "service",
+      "stock": 99,
+      "home": false,
+      "gift": false,
+      "trial": true,
+      "description": "9D变脸术，单部位体验，项目价值999元。领取体验卡后，可选择门店、日期和时间免费预约使用一次。",
+      "id": "69b6dac2-7ba3-4e92-a008-09056c7019f9",
+      "createdAt": "2026-10-10T05:32:55.433Z",
+      "code": "",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "subtitle": "单部位",
+      "brand": "",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "trialOnly": true,
+      "coursePrice": null,
+      "referencePrice": 999,
+      "needsArtwork": false,
+      "visualMode": "studio"
+    },
+    {
+      "id": "jimeili-collagen-type-iii",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "name": "暨美丽胶原蛋水光（三型胶原蛋白）",
+      "image": "https://anqi.okam.top/static/brand/product-recombinant-collagen.jpg",
+      "detailImage": "https://anqi.okam.top/static/brand/product-recombinant-collagen.jpg",
+      "price": 498,
+      "coursePrice": 1980,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "home": false,
+      "gift": false,
+      "trial": false,
+      "enabled": true,
+      "description": "单瓶：198元/瓶；十瓶疗程：1980元。促进胶原蛋白再生，修护老化肌肤。",
+      "sort": 1,
+      "recommended": false,
+      "code": "",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "subtitle": "",
+      "brand": "",
+      "keywords": [],
+      "gallery": [],
+      "status": "published",
+      "hot": false,
+      "isNew": false,
+      "skus": [],
+      "needsArtwork": false,
+      "referencePrice": null
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 2,
+      "recommended": false,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [],
+      "name": "AI大师",
+      "image": "https://anqi.okam.top/static/uploads/ba8ad059-96a8-49d9-aeab-33d4147c1d65.jpg",
+      "detailImage": "https://anqi.okam.top/static/uploads/ba8ad059-96a8-49d9-aeab-33d4147c1d65.jpg",
+      "price": 0,
+      "kind": "service",
+      "stock": 99,
+      "home": false,
+      "gift": false,
+      "trial": true,
+      "description": "AI大师，单部位体验，项目价值6980元。领取体验卡后，可选择门店、日期和时间免费预约使用一次。",
+      "id": "6fdfb407-ab3f-47b1-8c8c-b9e3c9b2586b",
+      "createdAt": "2026-10-10T05:32:55.460Z",
+      "code": "",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "subtitle": "单部位",
+      "brand": "",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "trialOnly": true,
+      "coursePrice": null,
+      "referencePrice": 6980,
+      "needsArtwork": false,
+      "visualMode": "studio"
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 3,
+      "recommended": false,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [],
+      "name": "超玛吉",
+      "image": "https://anqi.okam.top/static/uploads/59c563d7-12d2-462e-9dd4-1a2f25906b48.jpg",
+      "detailImage": "https://anqi.okam.top/static/uploads/59c563d7-12d2-462e-9dd4-1a2f25906b48.jpg",
+      "price": 0,
+      "kind": "service",
+      "stock": 99,
+      "home": false,
+      "gift": false,
+      "trial": true,
+      "description": "超玛吉，单部位体验，项目价值6980元。领取体验卡后，可选择门店、日期和时间免费预约使用一次。",
+      "id": "29525620-e803-44b9-98f9-b0b7369f4744",
+      "createdAt": "2026-10-10T05:32:55.481Z",
+      "code": "",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "subtitle": "单部位",
+      "brand": "",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "trialOnly": true,
+      "coursePrice": null,
+      "referencePrice": 6980,
+      "needsArtwork": false,
+      "visualMode": "studio"
+    },
+    {
+      "id": "jimeili-collagen-salmon",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "name": "暨美丽胶原蛋水光（三文鱼）",
+      "image": "https://anqi.okam.top/static/brand/product-salmon-aquatic.jpg",
+      "detailImage": "https://anqi.okam.top/static/brand/product-salmon-aquatic.jpg",
+      "price": 398,
+      "coursePrice": 2980,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "home": false,
+      "gift": false,
+      "trial": false,
+      "enabled": true,
+      "description": "单次：398元/次；疗程：2980元/10次。补水嫩肤、抗氧提亮、紧致修护。",
+      "sort": 3,
+      "recommended": false,
+      "code": "",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "subtitle": "",
+      "brand": "",
+      "keywords": [],
+      "gallery": [],
+      "status": "published",
+      "hot": false,
+      "isNew": false,
+      "skus": [],
+      "referencePrice": null
+    },
+    {
+      "id": "jimeili-collagen-vitamin-c",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "name": "暨美丽胶原蛋水光（VC）",
+      "image": "https://anqi.okam.top/static/brand/product-vitamin-c.jpg",
+      "detailImage": "https://anqi.okam.top/static/brand/product-vitamin-c.jpg",
+      "price": 398,
+      "coursePrice": 2980,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "home": false,
+      "gift": false,
+      "trial": false,
+      "enabled": true,
+      "description": "单次：398元/次；疗程：2980元/10次。美白提亮、改善肤色、抗氧修护。",
+      "sort": 4,
+      "recommended": false,
+      "code": "",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "subtitle": "",
+      "brand": "",
+      "keywords": [],
+      "gallery": [],
+      "status": "published",
+      "hot": false,
+      "isNew": false,
+      "skus": [],
+      "referencePrice": null
+    },
+    {
+      "id": "jimeili-collagen-composite",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "name": "暨美丽胶原蛋水光（复合性）",
+      "image": "https://anqi.okam.top/static/brand/product-composite-aqueous.jpg",
+      "detailImage": "https://anqi.okam.top/static/brand/product-composite-aqueous.jpg",
+      "price": 398,
+      "coursePrice": 2980,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "home": false,
+      "gift": false,
+      "trial": false,
+      "enabled": true,
+      "description": "单次：398元/次；疗程：2980元/10次。补水嫩肤、抗氧提亮、紧致修护。",
+      "sort": 5,
+      "recommended": false,
+      "code": "",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "subtitle": "",
+      "brand": "",
+      "keywords": [],
+      "gallery": [],
+      "status": "published",
+      "hot": false,
+      "isNew": false,
+      "skus": [],
+      "referencePrice": null
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 10,
+      "recommended": true,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [
+        {
+          "id": "9d-eye-single",
+          "name": "单次",
+          "code": "",
+          "attributes": {},
+          "price": 3980,
+          "stock": 1000,
+          "image": "",
+          "enabled": true,
+          "serviceSessions": 1
+        },
+        {
+          "id": "9d-eye-course",
+          "name": "疗程 · 10次",
+          "code": "",
+          "attributes": {},
+          "price": 12800,
+          "stock": 1000,
+          "image": "",
+          "enabled": true,
+          "serviceSessions": 10
+        }
+      ],
+      "name": "9D变眼术",
+      "code": "XIURONG-9D-EYE",
+      "subtitle": "单次",
+      "image": "https://anqi.okam.top/static/uploads/4ab782ff-cf39-4a40-9d64-e663ee504cea.jpg",
+      "detailImage": "https://anqi.okam.top/static/uploads/4ab782ff-cf39-4a40-9d64-e663ee504cea.jpg",
+      "price": 3980,
+      "memberPrice": null,
+      "kind": "service",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "stock": 2000,
+      "home": true,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "单次3980元；疗程12800元，共10次。购买后选择门店和时间预约。",
+      "packagePlans": [],
+      "id": "ff4ce8b2-2c61-47ca-ad35-1397fd04c0dd",
+      "createdAt": "2026-10-19T03:03:57.220Z",
+      "groupIds": "",
+      "freeShipping": false,
+      "brand": "",
+      "referencePrice": null,
+      "visualMode": "studio"
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 20,
+      "recommended": true,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [
+        "https://anqi.okam.top/static/uploads/93528bed-4b90-4c00-9c78-8c65f1670ee0.jpg"
+      ],
+      "skus": [
+        {
+          "id": "9d-face-single",
+          "name": "单次",
+          "code": "",
+          "attributes": {},
+          "price": 9800,
+          "stock": 100,
+          "image": "",
+          "enabled": true,
+          "serviceSessions": 1
+        },
+        {
+          "id": "9d-face-course",
+          "name": "疗程 · 10次",
+          "code": "",
+          "attributes": {},
+          "price": 39800,
+          "stock": 1000,
+          "image": "",
+          "enabled": true,
+          "serviceSessions": 10
+        }
+      ],
+      "name": "9D变脸术",
+      "subtitle": "单次",
+      "image": "https://anqi.okam.top/static/uploads/4ab782ff-cf39-4a40-9d64-e663ee504cea.jpg",
+      "price": 9800,
+      "kind": "service",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "stock": 1100,
+      "home": true,
+      "gift": false,
+      "trial": false,
+      "id": "3eeaa4b1-19dc-42a2-adbf-b4a6f8a4e679",
+      "createdAt": "2026-10-09T06:26:56.712Z",
+      "code": "XIURONG-9D-FACE",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "brand": "",
+      "referencePrice": null,
+      "detailImage": "https://anqi.okam.top/static/uploads/4ab782ff-cf39-4a40-9d64-e663ee504cea.jpg",
+      "description": "单次9800元；疗程39800元，共10次。体验卡、贵宾卡项目的展示价值不作为本商品下单价。",
+      "needsArtwork": false,
+      "visualMode": "studio"
+    },
+    {
+      "id": "jimeili-vip-6980",
+      "categoryId": "category-vip-packages",
+      "name": "黄金VIP套餐",
+      "subtitle": "A/B方案任选 · 分项目预约",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 6980,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 20,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "选择套餐方案和自选项目后下单。门店确认收款后，可在我的预约中按项目分次预约，每完成一次服务核销一次。具体服务安排请与所选门店确认。",
+      "packagePlans": [
+        {
+          "id": "a",
+          "name": "A方案",
+          "services": [
+            {
+              "id": "thermage-eye",
+              "name": "超玛吉 眼部450发",
+              "total": 1,
+              "referencePrice": 9980
+            },
+            {
+              "id": "9d-eye",
+              "name": "9D变眼术",
+              "total": 3,
+              "referencePrice": 3980
+            },
+            {
+              "id": "9d-face",
+              "name": "9D变脸术",
+              "total": 3,
+              "referencePrice": 9980
+            }
+          ],
+          "groups": [
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "name": "B方案",
+          "services": [
+            {
+              "id": "9d-face",
+              "name": "9D变脸术",
+              "total": 3,
+              "referencePrice": 9980
+            },
+            {
+              "id": "9d-eye",
+              "name": "9D变眼术",
+              "total": 3,
+              "referencePrice": 3980
+            },
+            {
+              "id": "glow-eye",
+              "name": "光屿重启 眼纹清零",
+              "total": 3,
+              "referencePrice": 9980
+            }
+          ],
+          "groups": [
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "code": "",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "referencePrice": null,
+      "keywords": [],
+      "gallery": [],
+      "hot": false,
+      "isNew": false,
+      "skus": []
+    },
+    {
+      "id": "jimeili-vip-13800",
+      "categoryId": "category-vip-packages",
+      "name": "铂金VIP套餐",
+      "subtitle": "A/B方案任选 · 分项目预约",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 13800,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 21,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "选择套餐方案和自选项目后下单。门店确认收款后，可在我的预约中按项目分次预约，每完成一次服务核销一次。具体服务安排请与所选门店确认。",
+      "packagePlans": [
+        {
+          "id": "a",
+          "name": "A方案",
+          "services": [
+            {
+              "id": "thermage-face",
+              "name": "超玛吉 900发",
+              "total": 1,
+              "referencePrice": 19800
+            },
+            {
+              "id": "9d-face",
+              "name": "9D变脸术",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-eye",
+              "name": "9D变眼术",
+              "total": 6,
+              "referencePrice": 7980
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "光屿重启单部位",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 单部位 皮贴骨",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 单部位 轮廓重现",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 单部位 眼纹清零",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 单部位 美白淡斑",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 单部位 溶脂塑形",
+                  "total": 1,
+                  "referencePrice": 3980
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "name": "B方案",
+          "services": [
+            {
+              "id": "9d-face",
+              "name": "9D变脸术",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-eye",
+              "name": "9D变眼术",
+              "total": 6,
+              "referencePrice": 7980
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "光屿重启面部或身体",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 面部 皮贴骨",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 面部 轮廓重现",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 面部 全纹清零",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 面部 美白淡斑",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 身体 溶脂塑形",
+                  "total": 3,
+                  "referencePrice": 19800
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "code": "",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "referencePrice": null,
+      "keywords": [],
+      "gallery": [],
+      "hot": false,
+      "isNew": false,
+      "skus": []
+    },
+    {
+      "id": "jimeili-vip-26800",
+      "categoryId": "category-vip-packages",
+      "name": "钻石VIP套餐",
+      "subtitle": "A/B方案任选 · 分项目预约",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 26800,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 22,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "选择套餐方案和自选项目后下单。门店确认收款后，可在我的预约中按项目分次预约，每完成一次服务核销一次。具体服务安排请与所选门店确认。",
+      "packagePlans": [
+        {
+          "id": "a",
+          "name": "A方案",
+          "services": [
+            {
+              "id": "thermage-face",
+              "name": "超玛吉 900发",
+              "total": 1,
+              "referencePrice": 19800
+            },
+            {
+              "id": "thermage-eye",
+              "name": "超玛吉 眼部450发",
+              "total": 1,
+              "referencePrice": 9980
+            },
+            {
+              "id": "ai",
+              "name": "金钻AI大师（1+1模式）",
+              "total": 1,
+              "referencePrice": 19800
+            },
+            {
+              "id": "9d-face",
+              "name": "9D变脸术",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-eye",
+              "name": "9D变眼术",
+              "total": 6,
+              "referencePrice": 7980
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "光屿重启单部位",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 单部位 皮贴骨",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 单部位 轮廓重现",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 单部位 眼纹清零",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 单部位 美白淡斑",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 单部位 溶脂塑形",
+                  "total": 1,
+                  "referencePrice": 3980
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "b",
+          "name": "B方案",
+          "services": [
+            {
+              "id": "9d-face",
+              "name": "9D变脸术",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-eye",
+              "name": "9D变眼术",
+              "total": 6,
+              "referencePrice": 7980
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "光屿重启面部或身体",
+              "pick": 2,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 面部 皮贴骨",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 面部 轮廓重现",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 面部 全纹清零",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 面部 美白淡斑",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 身体 溶脂塑形",
+                  "total": 3,
+                  "referencePrice": 19800
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "code": "",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "referencePrice": null,
+      "keywords": [],
+      "gallery": [],
+      "hot": false,
+      "isNew": false,
+      "skus": []
+    },
+    {
+      "id": "jimeili-vip-49800",
+      "categoryId": "category-vip-packages",
+      "name": "女王VIP套餐",
+      "subtitle": "多项目服务 · 分次预约",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 49800,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 23,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "选择套餐方案和自选项目后下单。门店确认收款后，可在我的预约中按项目分次预约，每完成一次服务核销一次。具体服务安排请与所选门店确认。",
+      "packagePlans": [
+        {
+          "id": "standard",
+          "name": "女王方案",
+          "services": [
+            {
+              "id": "thermage-face",
+              "name": "超玛吉 面部900发",
+              "total": 1,
+              "referencePrice": 19800
+            },
+            {
+              "id": "thermage-eye",
+              "name": "超玛吉 眼部450发",
+              "total": 1,
+              "referencePrice": 9980
+            },
+            {
+              "id": "thermage-neck",
+              "name": "超玛吉 颈部900发",
+              "total": 1,
+              "referencePrice": 19800
+            },
+            {
+              "id": "ai-face",
+              "name": "金钻 面部（2+2模式）",
+              "total": 1,
+              "referencePrice": 29800
+            },
+            {
+              "id": "ai-eye",
+              "name": "金钻 眼部（2+2模式）",
+              "total": 1,
+              "referencePrice": 19800
+            },
+            {
+              "id": "ai-neck",
+              "name": "金钻 颈部（2+2模式）",
+              "total": 1,
+              "referencePrice": 29800
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "光屿重启面部或身体",
+              "pick": 2,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 面部 皮贴骨",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 面部 轮廓重现",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 面部 全纹清零",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 面部 美白淡斑",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 身体 溶脂塑形",
+                  "total": 3,
+                  "referencePrice": 19800
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "code": "",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "referencePrice": null,
+      "keywords": [],
+      "gallery": [],
+      "hot": false,
+      "isNew": false,
+      "skus": []
+    },
+    {
+      "id": "jimeili-vip-99800",
+      "categoryId": "category-vip-packages",
+      "name": "至尊VIP套餐",
+      "subtitle": "多项目服务 · 分次预约",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 99800,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 24,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "选择套餐方案和自选项目后下单。门店确认收款后，可在我的预约中按项目分次预约，每完成一次服务核销一次。具体服务安排请与所选门店确认。",
+      "packagePlans": [
+        {
+          "id": "standard",
+          "name": "至尊方案",
+          "services": [
+            {
+              "id": "thermage-face",
+              "name": "超玛吉 面部900发",
+              "total": 2,
+              "referencePrice": 59600
+            },
+            {
+              "id": "thermage-eye",
+              "name": "超玛吉 眼部450发",
+              "total": 2,
+              "referencePrice": 39600
+            },
+            {
+              "id": "thermage-neck",
+              "name": "超玛吉 颈部900发",
+              "total": 2,
+              "referencePrice": 59600
+            },
+            {
+              "id": "ai-face",
+              "name": "金钻 面部（3+3模式）",
+              "total": 2,
+              "referencePrice": 79600
+            },
+            {
+              "id": "ai-eye",
+              "name": "金钻 眼部（3+3模式）",
+              "total": 2,
+              "referencePrice": 39600
+            },
+            {
+              "id": "ai-neck",
+              "name": "金钻 颈部（3+3模式）",
+              "total": 2,
+              "referencePrice": 79600
+            },
+            {
+              "id": "9d-face",
+              "name": "9D变脸术 面部",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-neck",
+              "name": "9D变脸术 颈部",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-body",
+              "name": "9D变脸术 身体任选一个部位",
+              "total": 6,
+              "referencePrice": 19980
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "光屿重启面部或身体",
+              "pick": 3,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 面部 皮贴骨",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 面部 轮廓重现",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 面部 全纹清零",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 面部 美白淡斑",
+                  "total": 3,
+                  "referencePrice": 19800
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 身体 溶脂塑形",
+                  "total": 3,
+                  "referencePrice": 19800
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "code": "",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "referencePrice": null,
+      "keywords": [],
+      "gallery": [],
+      "hot": false,
+      "isNew": false,
+      "skus": []
+    },
+    {
+      "id": "jimeili-vip-199800",
+      "categoryId": "category-vip-packages",
+      "name": "帝王VIP套餐",
+      "subtitle": "多项目服务 · 分次预约",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 199800,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 25,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "选择套餐方案和自选项目后下单。门店确认收款后，可在我的预约中按项目分次预约，每完成一次服务核销一次。具体服务安排请与所选门店确认。",
+      "packagePlans": [
+        {
+          "id": "standard",
+          "name": "帝王方案",
+          "services": [
+            {
+              "id": "thermage-face",
+              "name": "超玛吉 面部900发",
+              "total": 5,
+              "referencePrice": 149000
+            },
+            {
+              "id": "thermage-eye",
+              "name": "超玛吉 眼部450发",
+              "total": 5,
+              "referencePrice": 99000
+            },
+            {
+              "id": "thermage-neck",
+              "name": "超玛吉 颈部900发",
+              "total": 5,
+              "referencePrice": 149000
+            },
+            {
+              "id": "ai-face",
+              "name": "双逆/金钻 面部（3+3模式）",
+              "total": 5,
+              "referencePrice": 199000
+            },
+            {
+              "id": "ai-eye",
+              "name": "双逆/金钻 眼部（3+3模式）",
+              "total": 5,
+              "referencePrice": 99000
+            },
+            {
+              "id": "ai-neck",
+              "name": "双逆/金钻 颈部（3+3模式）",
+              "total": 5,
+              "referencePrice": 199000
+            },
+            {
+              "id": "9d-face",
+              "name": "9D变脸术 面部",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-neck",
+              "name": "9D变脸术 颈部",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-body",
+              "name": "9D变脸术 身体任选一个部位",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "glow-1",
+              "name": "光屿重启 面部 皮贴骨",
+              "total": 3,
+              "referencePrice": 19800
+            },
+            {
+              "id": "glow-2",
+              "name": "光屿重启 面部 轮廓重现",
+              "total": 3,
+              "referencePrice": 19800
+            },
+            {
+              "id": "glow-3",
+              "name": "光屿重启 面部 全纹清零",
+              "total": 3,
+              "referencePrice": 19800
+            },
+            {
+              "id": "glow-4",
+              "name": "光屿重启 面部 美白淡斑",
+              "total": 3,
+              "referencePrice": 19800
+            },
+            {
+              "id": "glow-5",
+              "name": "光屿重启 身体 溶脂塑形",
+              "total": 3,
+              "referencePrice": 19800
+            }
+          ],
+          "groups": [
+            {
+              "id": "star",
+              "name": "明星项目",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "water",
+                  "name": "胶原水光特护",
+                  "total": 1,
+                  "referencePrice": 980,
+                  "options": [
+                    "复合水光",
+                    "重组三型胶原",
+                    "三文鱼",
+                    "维C靓颜"
+                  ]
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 980
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "code": "",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "referencePrice": null,
+      "keywords": [],
+      "gallery": [],
+      "hot": false,
+      "isNew": false,
+      "skus": []
+    },
+    {
+      "id": "jimeili-rejuvenation-set",
+      "name": "逆龄肽奢护焕颜套",
+      "image": "https://anqi.okam.top/static/brand/product-rejuvenation-set-generated.png",
+      "price": 1980,
+      "coursePrice": null,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "home": true,
+      "gift": false,
+      "trial": false,
+      "enabled": true,
+      "description": "多肽精粹焕颜护理套装，包含焕颜精华液与多肽精华液，深层滋养、紧致焕亮。具体适用方案与到店服务安排请咨询门店。",
+      "detailImage": "https://anqi.okam.top/static/brand/284c27d5c43001f0f7f0ba76dcd24623.jpg",
+      "needsArtwork": false,
+      "categoryId": "8b9ccb18-943f-4369-83f0-bcd17047b98b",
+      "subtitle": "",
+      "brand": "",
+      "keywords": [],
+      "gallery": [],
+      "sort": 26,
+      "status": "published",
+      "recommended": true,
+      "hot": false,
+      "isNew": false,
+      "skus": [],
+      "code": "",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "referencePrice": null
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 30,
+      "recommended": true,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [
+        {
+          "id": "gold-ai-part",
+          "name": "单部位 · 1次",
+          "code": "",
+          "attributes": {},
+          "price": 6980,
+          "stock": 1000,
+          "image": "",
+          "enabled": true,
+          "serviceSessions": 1
+        }
+      ],
+      "name": "10D金钻AI大师",
+      "code": "XIURONG-GOLD-AI",
+      "subtitle": "全脸方案 19800—39800元/次，请联系门店确认",
+      "image": "https://anqi.okam.top/static/uploads/1c1dbb35-c071-46c4-938e-796e727efc53.jpg",
+      "detailImage": "https://anqi.okam.top/static/uploads/1c1dbb35-c071-46c4-938e-796e727efc53.jpg",
+      "price": 6980,
+      "memberPrice": null,
+      "kind": "service",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "stock": 1000,
+      "home": true,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "单部位6980元/次。全脸方案19800—39800元/次，具体方案与价格请联系门店确认；当前在线规格仅为单部位。",
+      "packagePlans": [],
+      "id": "f590f685-4e62-4e85-b119-d7dbd07d682d",
+      "createdAt": "2026-10-19T03:03:57.291Z",
+      "groupIds": "",
+      "freeShipping": false,
+      "brand": "",
+      "referencePrice": null,
+      "visualMode": "studio"
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 40,
+      "recommended": true,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [
+        {
+          "id": "thermage-part",
+          "name": "单部位 · 1次",
+          "code": "",
+          "attributes": {},
+          "price": 6980,
+          "stock": 100,
+          "image": "",
+          "enabled": true,
+          "serviceSessions": 1
+        },
+        {
+          "id": "thermage-face",
+          "name": "全脸 · 1次",
+          "code": "",
+          "attributes": {},
+          "price": 29800,
+          "stock": 1000,
+          "image": "",
+          "enabled": true,
+          "serviceSessions": 1
+        }
+      ],
+      "name": "超玛吉",
+      "subtitle": "单部位 · 1次",
+      "image": "https://anqi.okam.top/static/uploads/59c563d7-12d2-462e-9dd4-1a2f25906b48.jpg",
+      "price": 6980,
+      "kind": "service",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "stock": 1100,
+      "home": true,
+      "gift": false,
+      "trial": false,
+      "id": "b83752e9-b64f-43d7-9539-8bf8dd26aa7d",
+      "createdAt": "2026-10-09T06:27:45.637Z",
+      "code": "XIURONG-SUPER-THERMAGE",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "brand": "",
+      "referencePrice": null,
+      "detailImage": "https://anqi.okam.top/static/uploads/59c563d7-12d2-462e-9dd4-1a2f25906b48.jpg",
+      "description": "单部位6980元/次；全脸29800元/次。购买后预约到店使用。",
+      "needsArtwork": false,
+      "visualMode": "studio"
+    },
+    {
+      "id": "jimeili-ai-light-restart",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "name": "光屿重启",
+      "image": "https://anqi.okam.top/static/brand/product-ai-light-restart-v2.jpg",
+      "detailImage": "https://anqi.okam.top/static/brand/product-ai-light-info.jpg",
+      "price": 3980,
+      "kind": "service",
+      "stock": 2100,
+      "sold": 0,
+      "home": true,
+      "gift": false,
+      "trial": false,
+      "enabled": true,
+      "description": "单部位3980元/次；全脸6980元/次；疗程13800元，共3次。",
+      "sort": 50,
+      "recommended": true,
+      "code": "XIURONG-LIGHT",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "subtitle": "单部位 · 1次",
+      "brand": "",
+      "keywords": [],
+      "gallery": [],
+      "status": "published",
+      "hot": false,
+      "isNew": false,
+      "skus": [
+        {
+          "id": "light-part",
+          "name": "单部位 · 1次",
+          "code": "",
+          "attributes": {},
+          "price": 3980,
+          "stock": 100,
+          "image": "",
+          "enabled": true,
+          "serviceSessions": 1
+        },
+        {
+          "id": "light-face",
+          "name": "全脸 · 1次",
+          "code": "",
+          "attributes": {},
+          "price": 6980,
+          "stock": 1000,
+          "image": "",
+          "enabled": true,
+          "serviceSessions": 1
+        },
+        {
+          "id": "light-course",
+          "name": "疗程 · 3次",
+          "code": "",
+          "attributes": {},
+          "price": 13800,
+          "stock": 1000,
+          "image": "",
+          "enabled": true,
+          "serviceSessions": 3
+        }
+      ],
+      "referencePrice": null,
+      "needsArtwork": false
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 60,
+      "recommended": false,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [],
+      "name": "黑金AI大师",
+      "subtitle": "单部位",
+      "image": "https://anqi.okam.top/static/uploads/ba8ad059-96a8-49d9-aeab-33d4147c1d65.jpg",
+      "price": 6980,
+      "kind": "service",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "stock": 100,
+      "home": false,
+      "gift": false,
+      "trial": false,
+      "id": "2504b7af-3dbb-4780-b50c-600204a1314e",
+      "createdAt": "2026-10-09T06:26:15.781Z",
+      "code": "",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "brand": "",
+      "referencePrice": null,
+      "detailImage": "https://anqi.okam.top/static/uploads/ba8ad059-96a8-49d9-aeab-33d4147c1d65.jpg",
+      "needsArtwork": false,
+      "visualMode": "studio"
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 200,
+      "recommended": false,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [],
+      "name": "N迪迈（眼）",
+      "code": "XIURONG-VIP-n-eye",
+      "subtitle": "眼部",
+      "image": "/static/assets/product-placeholder.jpg",
+      "detailImage": "/static/assets/product-placeholder.jpg",
+      "price": 0,
+      "referencePrice": 598,
+      "kind": "service",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "stock": 1000,
+      "home": false,
+      "gift": true,
+      "trial": false,
+      "trialOnly": true,
+      "description": "贵宾卡十选三项目。领取后可预约到店使用一次，所示金额为项目展示价值，领取无需支付。",
+      "packagePlans": [],
+      "id": "e0b184e9-3518-4945-8680-2c3df733063d",
+      "createdAt": "2026-10-19T03:03:57.409Z",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "brand": ""
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 201,
+      "recommended": false,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [],
+      "name": "N迪迈（面）",
+      "code": "XIURONG-VIP-n-face",
+      "subtitle": "面部",
+      "image": "/static/assets/product-placeholder.jpg",
+      "detailImage": "/static/assets/product-placeholder.jpg",
+      "price": 0,
+      "referencePrice": 598,
+      "kind": "service",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "stock": 1000,
+      "home": false,
+      "gift": true,
+      "trial": false,
+      "trialOnly": true,
+      "description": "贵宾卡十选三项目。领取后可预约到店使用一次，所示金额为项目展示价值，领取无需支付。",
+      "packagePlans": [],
+      "id": "2f9e7866-6c0f-44d9-b7d8-86866bd7603f",
+      "createdAt": "2026-10-19T03:03:57.457Z",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "brand": ""
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 202,
+      "recommended": false,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [],
+      "name": "玑白（面）",
+      "code": "XIURONG-VIP-jibai",
+      "subtitle": "面部",
+      "image": "https://anqi.okam.top/static/uploads/c0634542-c301-42da-aaa5-58531413c497.jpg",
+      "detailImage": "https://anqi.okam.top/static/uploads/c0634542-c301-42da-aaa5-58531413c497.jpg",
+      "price": 0,
+      "referencePrice": 598,
+      "kind": "service",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "stock": 1000,
+      "home": false,
+      "gift": true,
+      "trial": false,
+      "trialOnly": true,
+      "description": "贵宾卡十选三项目。领取后可预约到店使用一次，所示金额为项目展示价值，领取无需支付。",
+      "packagePlans": [],
+      "id": "271f1fb5-4627-41fb-856a-87af762ec3d4",
+      "createdAt": "2026-10-19T03:03:57.504Z",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "brand": ""
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 203,
+      "recommended": false,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [],
+      "name": "超透白（面）",
+      "code": "XIURONG-VIP-white",
+      "subtitle": "面部",
+      "image": "/static/assets/product-placeholder.jpg",
+      "detailImage": "/static/assets/product-placeholder.jpg",
+      "price": 0,
+      "referencePrice": 598,
+      "kind": "service",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "stock": 1000,
+      "home": false,
+      "gift": true,
+      "trial": false,
+      "trialOnly": true,
+      "description": "贵宾卡十选三项目。领取后可预约到店使用一次，所示金额为项目展示价值，领取无需支付。",
+      "packagePlans": [],
+      "id": "82418f1a-6ad2-4f81-99db-8e853249f9fe",
+      "createdAt": "2026-10-19T03:03:57.550Z",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "brand": ""
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 204,
+      "recommended": false,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [],
+      "name": "9D变眼术",
+      "code": "XIURONG-VIP-9d-eye",
+      "subtitle": "单次",
+      "image": "https://anqi.okam.top/static/uploads/4ab782ff-cf39-4a40-9d64-e663ee504cea.jpg",
+      "detailImage": "https://anqi.okam.top/static/uploads/4ab782ff-cf39-4a40-9d64-e663ee504cea.jpg",
+      "price": 0,
+      "referencePrice": 980,
+      "kind": "service",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "stock": 1000,
+      "home": false,
+      "gift": true,
+      "trial": false,
+      "trialOnly": true,
+      "description": "贵宾卡十选三项目。领取后可预约到店使用一次，所示金额为项目展示价值，领取无需支付。",
+      "packagePlans": [],
+      "id": "0288284b-fa3b-4ce3-9e5e-a09bf1b5fb78",
+      "createdAt": "2026-10-19T03:03:57.595Z",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "brand": "",
+      "visualMode": "studio"
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 205,
+      "recommended": false,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [],
+      "name": "9D变脸术",
+      "code": "XIURONG-VIP-9d-face",
+      "subtitle": "单次",
+      "image": "https://anqi.okam.top/static/uploads/4ab782ff-cf39-4a40-9d64-e663ee504cea.jpg",
+      "detailImage": "https://anqi.okam.top/static/uploads/4ab782ff-cf39-4a40-9d64-e663ee504cea.jpg",
+      "price": 0,
+      "referencePrice": 3980,
+      "kind": "service",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "stock": 1000,
+      "home": false,
+      "gift": true,
+      "trial": false,
+      "trialOnly": true,
+      "description": "贵宾卡十选三项目。领取后可预约到店使用一次，所示金额为项目展示价值，领取无需支付。",
+      "packagePlans": [],
+      "id": "b00c4bdf-de9c-4dc6-98e1-d17f1e59cca8",
+      "createdAt": "2026-10-19T03:03:57.640Z",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "brand": "",
+      "visualMode": "studio"
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 206,
+      "recommended": false,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [],
+      "name": "10D童颜女神（面）",
+      "code": "XIURONG-VIP-10d",
+      "subtitle": "面部",
+      "image": "https://anqi.okam.top/static/uploads/1c1dbb35-c071-46c4-938e-796e727efc53.jpg",
+      "detailImage": "https://anqi.okam.top/static/uploads/1c1dbb35-c071-46c4-938e-796e727efc53.jpg",
+      "price": 0,
+      "referencePrice": 6980,
+      "kind": "service",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "stock": 1000,
+      "home": false,
+      "gift": true,
+      "trial": false,
+      "trialOnly": true,
+      "description": "贵宾卡十选三项目。领取后可预约到店使用一次，所示金额为项目展示价值，领取无需支付。",
+      "packagePlans": [],
+      "id": "212ea1d0-c387-4745-9101-55877299f367",
+      "createdAt": "2026-10-19T03:03:57.684Z",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "brand": "",
+      "visualMode": "studio"
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 207,
+      "recommended": false,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [],
+      "name": "光屿重启",
+      "code": "XIURONG-VIP-light",
+      "subtitle": "单部位",
+      "image": "https://anqi.okam.top/static/brand/product-ai-light-restart-v2.jpg",
+      "detailImage": "https://anqi.okam.top/static/brand/product-ai-light-restart-v2.jpg",
+      "price": 0,
+      "referencePrice": 3980,
+      "kind": "service",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "stock": 1000,
+      "home": false,
+      "gift": true,
+      "trial": false,
+      "trialOnly": true,
+      "description": "贵宾卡十选三项目。领取后可预约到店使用一次，所示金额为项目展示价值，领取无需支付。",
+      "packagePlans": [],
+      "id": "6aaecdcd-6b00-42bc-a25f-acbe408c8dd4",
+      "createdAt": "2026-10-19T03:03:57.727Z",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "brand": ""
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 208,
+      "recommended": false,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [],
+      "name": "AI大师",
+      "code": "XIURONG-VIP-ai",
+      "subtitle": "单部位 · 黑金AI大师",
+      "image": "https://anqi.okam.top/static/uploads/ba8ad059-96a8-49d9-aeab-33d4147c1d65.jpg",
+      "detailImage": "https://anqi.okam.top/static/uploads/ba8ad059-96a8-49d9-aeab-33d4147c1d65.jpg",
+      "price": 0,
+      "referencePrice": 6980,
+      "kind": "service",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "stock": 1000,
+      "home": false,
+      "gift": true,
+      "trial": false,
+      "trialOnly": true,
+      "description": "贵宾卡十选三项目。领取后可预约到店使用一次，所示金额为项目展示价值，领取无需支付。",
+      "packagePlans": [],
+      "id": "3789989e-9a92-44a3-a603-b0e34b1a15bc",
+      "createdAt": "2026-10-19T03:03:57.770Z",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "brand": "",
+      "visualMode": "studio"
+    },
+    {
+      "sold": 0,
+      "status": "published",
+      "enabled": true,
+      "sort": 209,
+      "recommended": false,
+      "hot": false,
+      "isNew": false,
+      "keywords": [],
+      "gallery": [],
+      "skus": [],
+      "name": "超玛吉",
+      "code": "XIURONG-VIP-thermage",
+      "subtitle": "单部位",
+      "image": "https://anqi.okam.top/static/uploads/59c563d7-12d2-462e-9dd4-1a2f25906b48.jpg",
+      "detailImage": "https://anqi.okam.top/static/uploads/59c563d7-12d2-462e-9dd4-1a2f25906b48.jpg",
+      "price": 0,
+      "referencePrice": 6980,
+      "kind": "service",
+      "categoryId": "853df9f1-f1b6-480a-8c0a-5dc4e699f247",
+      "stock": 1000,
+      "home": false,
+      "gift": true,
+      "trial": false,
+      "trialOnly": true,
+      "description": "贵宾卡十选三项目。领取后可预约到店使用一次，所示金额为项目展示价值，领取无需支付。",
+      "packagePlans": [],
+      "id": "6a262229-2f83-44ad-84f7-2eded032eded",
+      "createdAt": "2026-10-19T03:03:57.816Z",
+      "groupIds": "",
+      "memberPrice": null,
+      "freeShipping": false,
+      "brand": "",
+      "visualMode": "studio"
+    }
+  ],
+  "categories": [
+    {
+      "name": "特色项目",
+      "sort": 1,
+      "enabled": true,
+      "id": "853df9f1-f1b6-480a-8c0a-5dc4e699f247"
+    },
+    {
+      "name": "优选单品",
+      "sort": 2,
+      "enabled": true,
+      "id": "8b9ccb18-943f-4369-83f0-bcd17047b98b"
+    },
+    {
+      "id": "category-vip-packages",
+      "name": "VIP套餐",
+      "sort": 3,
+      "enabled": true
+    }
+  ],
+  "stores": [
+    {
+      "enabled": true,
+      "name": "秀荣科技美肤·建业店",
+      "contact": "秀容美容",
+      "phone": "18639035033",
+      "address": "商丘市南京路星林路交叉口建业桂园小区27# 商铺",
+      "image": "https://anqi.okam.top/static/uploads/d7b034a1-4e9b-4e9d-8275-39c00a0d8509.png",
+      "imageCaption": "秀容门店效果图",
+      "gallery": [],
+      "schedulingEnabled": false,
+      "appointmentDurationMinutes": 60,
+      "id": "26605ac6-b6bb-413a-b8d5-4f71272e9845",
+      "createdAt": "2026-10-19T03:03:57.939Z"
+    },
+    {
+      "enabled": true,
+      "name": "秀荣科技美肤·和谐店",
+      "contact": "秀容美容",
+      "phone": "18639035033",
+      "address": "虞城县木兰大道和谐北大花园南门商铺",
+      "image": "https://anqi.okam.top/static/uploads/c1ed4457-9a6c-4a4f-8318-0380fb7033d8.jpg",
+      "gallery": [
+        "https://anqi.okam.top/static/uploads/3e829e3f-3ee8-4e6c-a0f8-832e7743c90e.jpg",
+        "https://anqi.okam.top/static/uploads/3b7d44c8-df25-4710-ac99-cdcc37b31f16.jpg",
+        "https://anqi.okam.top/static/uploads/9a11c2ab-25b8-4366-8ed7-813c34cff050.jpg",
+        "https://anqi.okam.top/static/uploads/538a921b-bfaa-484f-8fe4-e05d69a34b1d.jpg",
+        "https://anqi.okam.top/static/uploads/49bd22fe-6138-4472-9a0a-2ee56ce2f0a7.jpg",
+        "https://anqi.okam.top/static/uploads/421934d7-2172-4a59-90e3-ca6531247ac7.jpg",
+        "https://anqi.okam.top/static/uploads/0de1d90f-f78c-4c8e-8e5a-1de3534c48e8.jpg",
+        "https://anqi.okam.top/static/uploads/74f061a1-8f96-46a3-89e2-32d56157c121.jpg",
+        "https://anqi.okam.top/static/uploads/44ef1a46-7c9e-4d2d-8a1d-81104df602a5.jpg",
+        "https://anqi.okam.top/static/uploads/9958abf5-3f9d-4e80-8127-d2ff5ea1cb84.jpg",
+        "https://anqi.okam.top/static/uploads/a778968c-9353-4827-a42f-4f56ca3bd139.jpg"
+      ],
+      "schedulingEnabled": false,
+      "appointmentDurationMinutes": 60,
+      "id": "a7bb6ebb-20a6-482c-a2ad-a504e083522f",
+      "createdAt": "2026-10-19T03:03:57.986Z"
+    },
+    {
+      "id": "store-1",
+      "name": "秀荣科技美肤",
+      "contact": "庞敬敬",
+      "phone": "13140131984",
+      "address": "晋安路集英花园北门吕庄一组集资楼3号楼第4套",
+      "image": "https://anqi.okam.top/static/brand/store-cover-jimeili-v2.jpg",
+      "hours": "09:00—20:00",
+      "enabled": true
+    }
+  ],
+  "homeModules": []
+}

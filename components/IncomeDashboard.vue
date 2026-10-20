@@ -1,23 +1,30 @@
 <template>
-  <view class="income-dashboard">
-    <view class="income-summary"><view><text class="summary-label">静态收益</text><text class="summary-value">¥{{money(summary.static)}}</text></view><view><text class="summary-label">动态收益</text><text class="summary-value">¥{{money(summary.dynamic)}}</text></view></view>
-    <view class="income-note">累计净收益 ¥{{money(summary.total)}} · 计划待入账 ¥{{money(summary.pending)}}<view>收益按订单规则记账；退款冲回以负数列示。</view></view>
-    <view class="income-tabs"><button v-for="item in tabs" :key="item.value" :class="{active:filter===item.value}" @click="filter=item.value">{{item.label}}</button></view>
-    <view v-for="r in filtered" :key="r.id" class="income-record"><view class="record-heading"><text>{{r.source==='pool'?'分红池':r.type==='static'?'静态收益':r.source==='referral'?'推荐奖励 · '+(r.tier==='first'?'首单':'后续'):r.type==='dynamic'?'动态收益':'历史收益'}}{{r.kind==='reversal'?' · 退款冲回':''}}</text><text class="record-amount">{{r.amount>0?'+':''}}{{money(r.amount)}}元</text></view><view>{{r.name}}</view><view class="record-date">{{date(r.createdAt)}}</view></view>
-    <view v-if="!filtered.length&&!loading" class="income-empty">暂无{{filter==='static'?'静态':filter==='dynamic'?'动态':''}}收益记录</view>
-    <view v-if="activePlans.length" class="plans"><view class="plans-heading">待入账计划</view><view v-for="p in activePlans" :key="p.id" class="plan-row"><view>{{p.name}}</view><view class="plan-meta">{{p.type==='static'?'静态收益':p.source==='referral'?'推荐奖励 · '+(p.tier==='first'?'首单 ':'后续 ')+p.percent+'%':'动态收益'}} · 已入账 {{p.posted}} / {{p.periods}} 期</view><view class="plan-meta">下期 ¥{{money(p.amount)}} · {{date(p.nextAt)}}</view></view></view>
-    <view class="income-footnote">计划金额尚未入账。此页面为收益账本，当前不提供微信提现或自动转账。</view>
+  <view class="xr-income xr-gutter">
+    <view class="xr-income-summary"><view><text>静态收益</text><text>¥{{amount(summary.static)}}</text></view><view><text>动态收益</text><text>¥{{amount(summary.dynamic)}}</text></view></view><view class="xr-income-note">累计净收益 <text>¥{{amount(summary.total)}}</text> · 计划待入账 <text>¥{{amount(summary.pending)}}</text></view>
+    <view class="xr-income-records"><view class="xr-tabs"><button v-for="item in tabs" :key="item.value" :class="{'is-active':filter===item.value}" @click="filter=item.value">{{item.label}}</button></view><view v-for="record in filtered" :key="record.id" class="xr-income-record"><view class="xr-income-record-icon"><UiIcon :name="record.kind==='reversal'?'minus':record.source==='pool'?'crown':'user'" tone="rose" :size="32"/></view><view class="xr-income-record-copy"><view class="xr-between"><text>{{recordTitle(record)}}</text><text class="xr-price">{{record.amount>0?'+':record.amount<0?'−':''}}¥{{amount(Math.abs(record.amount))}}</text></view><text v-if="record.name" class="xr-caption">{{record.name}}</text><text class="xr-caption">{{date(record.createdAt)}}</text></view></view><EmptyState v-if="!filtered.length&&!loading" icon="document" :title="error?'暂时无法加载收益记录':'暂无'+(filter==='static'?'静态':filter==='dynamic'?'动态':'')+'收益记录'" :description="error?'请检查网络后重新加载':'收益入账后，会在这里清晰展示'" compact/></view>
+    <view v-if="activePlans.length" class="xr-income-plans"><view class="xr-section-heading"><text>待入账计划</text><text class="xr-caption">计划金额尚未入账</text></view><view v-for="plan in activePlans" :key="plan.id" class="xr-income-plan"><text class="xr-product-name">{{plan.name}}</text><text class="xr-caption">{{plan.type==='static'?'静态收益':plan.source==='referral'?'推荐奖励 · '+(plan.tier==='first'?'首单':'后续')+' '+plan.percent+'%':'动态收益'}} · 已入账{{plan.posted}}/{{plan.periods}}期</text><view class="xr-caption">下期 <text class="xr-price">¥{{amount(plan.amount)}}</text> · {{date(plan.nextAt)}}</view></view></view>
+    <view v-if="referral.enabled||pool.enabled" class="xr-income-rules"><view v-if="referral.enabled">推荐奖励：首单{{referral.firstPercent}}%，后续{{referral.laterPercent}}%</view><view v-if="pool.enabled">{{poolLabel}}</view></view><view class="xr-income-footnote">收益按订单规则记账，退款冲回以负数列示。计划金额尚未入账，当前不提供微信提现或自动转账。</view>
   </view>
 </template>
 <script setup>
 import {ref,computed} from 'vue'
-const props=defineProps({records:{type:Array,default:()=>[]},summary:{type:Object,default:()=>({})},loading:Boolean})
+import {formatPrice} from '../common/ui.js'
+import UiIcon from './UiIcon.vue'
+import EmptyState from './EmptyState.vue'
+const props=defineProps({records:{type:Array,default:()=>[]},summary:{type:Object,default:()=>({})},config:{type:Object,default:()=>({})},loading:Boolean,error:Boolean})
 const filter=ref(''),tabs=[{value:'',label:'全部'},{value:'static',label:'静态收益'},{value:'dynamic',label:'动态收益'}]
-const filtered=computed(()=>props.records.filter(r=>!filter.value||r.type===filter.value).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))))
-const activePlans=computed(()=>(props.summary.plans||[]).filter(p=>p.status==='active'&&(!filter.value||p.type===filter.value)))
-const money=v=>Number(v||0).toFixed(2)
-function date(value){if(!value)return '';const d=new Date(Date.parse(value)+8*3600000);return d.toISOString().slice(0,16).replace('T',' ')+'（北京时间）'}
+const filtered=computed(()=>props.records.filter(record=>!filter.value||record.type===filter.value).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))))
+const activePlans=computed(()=>(props.summary.plans||[]).filter(plan=>plan.status==='active'&&(!filter.value||plan.type===filter.value)))
+const referral=computed(()=>props.config.referralReward||{})
+const pool=computed(()=>props.config.poolReward||{})
+const poolLabel=computed(()=>{
+  const value=pool.value,cycle={daily:'每日',weekly:'每周',monthly:'每月'}[value.cycle]||'按规则'
+  const source={revenue:'营业额',sales:'新增办卡金额'}[value.source]||'约定基数'
+  return '分红池：'+cycle+source+value.percent+'%'+(value.activityDays?'，'+value.activityDays+'天一轮':'')
+})
+function amount(value){return value===undefined||value===null?'—':formatPrice(value,true)}
+function recordTitle(record){return (record.source==='pool'?'分红池':record.source==='referral'?'推荐奖励 · '+(record.tier==='first'?'首单':'后续'):record.type==='static'?'静态收益':record.type==='dynamic'?'动态收益':'历史收益')+(record.kind==='reversal'?' · 退款冲回':'')}
+function date(value){const timestamp=Date.parse(value);return Number.isFinite(timestamp)?new Date(timestamp+8*3600000).toISOString().slice(0,16).replace('T',' ')+'（北京时间）':''}
 </script>
-<style scoped>
-.income-dashboard{padding:32rpx 28rpx;color:#352d3e}.income-summary{display:flex;padding:32rpx 0;border-bottom:1px solid #e8dfed}.income-summary>view{flex:1}.summary-label{display:block;color:#75677b;font-size:28rpx}.summary-value{display:block;margin-top:16rpx;font-size:40rpx;font-weight:600;font-variant-numeric:tabular-nums}.income-note{font-size:24rpx;line-height:1.8;color:#7c6c84;margin:24rpx 0}.income-tabs{display:flex;border-bottom:1px solid #e0d5e6;margin-top:30rpx}.income-tabs button{margin:0;border-radius:0;flex:1;background:transparent;font-size:28rpx;color:#75677b;padding:4rpx 0}.income-tabs button::after{border:0}.income-tabs button.active{color:#8954a3;border-bottom:2px solid #a16fbb}.income-record{padding:30rpx 0;border-bottom:1px solid #e8dfed;font-size:27rpx;line-height:1.65}.record-heading{display:flex;justify-content:space-between;gap:24rpx;margin-bottom:10rpx;font-weight:600}.record-amount{flex-shrink:0;color:#8954a3;font-variant-numeric:tabular-nums}.record-date,.plan-meta{font-size:24rpx;color:#7c6c84;margin-top:8rpx}.income-empty{padding:64rpx 0;text-align:center;color:#8c8091;font-size:28rpx}.plans{margin-top:32rpx}.plans-heading{font-size:31rpx;font-weight:600}.plan-row{padding:24rpx 0;border-bottom:1px solid #e8dfed;font-size:27rpx}.income-footnote{font-size:23rpx;color:#8c8091;line-height:1.7;margin-top:32rpx}
-</style>
+
+<script>export default {options:{virtualHost:true,styleIsolation:"shared"}}</script>

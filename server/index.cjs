@@ -8,6 +8,9 @@ const wechat = require('./wechat-login.cjs');
 const vipPackages = require('./vip-packages.cjs');
 const staffScheduling = require('./staff-scheduling.cjs');
 const income = require('./income.cjs');
+const presentation = require('./presentation-config.cjs');
+const notifications = require('./notifications.cjs');
+const APP_VERSION = require('../package.json').version;
 const ROOT = path.resolve(__dirname, '..');
 const FILE = process.env.DATA_FILE || path.join(__dirname, 'data/db.json');
 const DEMO = process.env.DEMO_MODE === 'true';
@@ -16,10 +19,11 @@ const MOCK_PAYMENT = PAYMENT_MODE === 'mock' && ['test','staging','development']
 const HOST = process.env.HOST || '127.0.0.1';
 const sessions = new Map();
 let mysqlStore;
-const publicUser=u=>Object.fromEntries(Object.entries(u).filter(([k])=>!['openid','unionid','session_key','wechatAppId','wechatLoginCodes','password','salt','hash'].includes(k)));
+const publicUser=u=>Object.fromEntries(Object.entries(u).filter(([k])=>!['openid','unionid','session_key','wechatAppId','wechatLoginCodes','password','salt','hash','subscriptionCredits'].includes(k)));
 const internal=req=>process.env.INTERNAL_SECRET && req.headers['x-anqi-internal']===process.env.INTERNAL_SECRET;
 const attempts = new Map();
 const configDefaults = { name: '暨美丽', version: '1.0.9', appointmentCapacity: 1, appointmentTimes: '09:00,10:00,11:00,14:00,15:00,16:00,17:00,18:00', shortcutTrialLabel: '体验卡', shortcutVipLabel: '贵宾卡', shortcutShareLabel: '邀请码', homeImage: '/static/brand/hero-middle.jpg', heroTop: '/static/brand/hero-top-jimeili-v2.jpg', heroBottom: '/static/brand/hero-bottom-v2.jpg', storeDefaultImage: '/static/brand/store-cover-jimeili-v2.jpg', brandLogo: '/static/brand/logo-jimeili.png', welcome: '/static/assets/service-heading.jpg', hero: '/static/brand/jimeili-1-steamed-face.jpg', brand: '/static/brand/brand-jimeili.png', projectPromo: '/static/assets/service-heading.jpg', storePromo: '/static/brand/store-cover-jimeili-v2.jpg', customerQr: '', pointsBanner: '/static/assets/points-banner.jpg', serviceHeading: '/static/assets/service-heading.jpg', productHeading: '/static/assets/product-heading.jpg', signPoints: 100, maxGifts: 3, pointsRules: '每日可签到一次，签到获得100积分。积分可用于兑换后台已上架的积分商品。', subscriptionEnabled: true, messageReminderEnabled: true, marketingEnabled: true, agreement: '本协议说明您使用暨美丽小程序时的服务规则。您在注册、登录、下单、预约、领取礼品前，请核对商品、价格、库存、门店、数量和联系方式。您应遵守法律法规及平台规则，不得从事违法、欺诈、骚扰或损害他人权益的行为。订单、预约、礼品和售后以小程序及后台实时记录为准。如有疑问，请通过客服或门店渠道咨询。经营方会在法律允许范围内调整服务规则，并在小程序内公布调整内容。', privacy: '本隐私政策说明暨美丽在提供微信登录、商品购买、门店预约、订单履约、礼品领取和客服服务时的信息处理方式。我们仅在实现相应功能所必需的范围内处理微信身份标识、昵称头像、联系方式、收货地址、订单、预约和设备运行信息，不会向前端展示微信密钥或会话密钥。您可以通过个人中心、客服或门店渠道咨询、更正或删除相关信息。政策发生重大变化时，我们会在小程序内提示。正式上线前请经营方根据实际主体和业务完成审核。' };
+Object.assign(configDefaults,presentation.defaults,{version:APP_VERSION});
 const adminPassword = process.env.ADMIN_PASSWORD || crypto.randomBytes(12).toString('hex');
 if (!DEMO && !process.env.ADMIN_PASSWORD) throw new Error('正式环境必须设置 ADMIN_PASSWORD');
 if (DEMO && !['127.0.0.1', 'localhost', '::1'].includes(HOST)) throw new Error('演示接口仅允许监听本机');
@@ -33,6 +37,7 @@ db.ledger ||= [];
 db.redemptions ||= [];
 staffScheduling.initialize(db);
 income.init(db);
+notifications.init(db);
 for(const r of db.sessions||[])if(r.expires>Date.now())sessions.set(r.id,r);
 let fileQueue=Promise.resolve();
 function runFile(fn){const task=fileQueue.then(async()=>{const previous=JSON.stringify(db);const previousSessions=new Map([...sessions].map(([k,v])=>[k,{...v}]));try{const result=await fn();db.sessions=[...sessions].filter(([,r])=>r.expires>Date.now()).map(([id,r])=>({id,...r}));save();return result}catch(e){db=JSON.parse(previous);sessions.clear();for(const [k,v]of previousSessions)sessions.set(k,v);save();throw e}});fileQueue=task.catch(()=>{});return task;}
@@ -86,13 +91,14 @@ function normalizeProduct(product) {
     const active = product.skus.filter(s => s.enabled !== false);
     product.stock = active.reduce((sum, sku) => sum + sku.stock, 0);
     product.price = active[0]?.price ?? product.price;
-    product.image = active[0]?.image || product.image;
+    if(!product.image)product.image = active[0]?.image || '';
   }
   return product;
 }
 function validate(collection, b) {
-  const fields = { products: ['name','code','subtitle','brand','groupIds','keywords','gallery','image','detailImage','price','memberPrice','referencePrice','coursePrice','kind','categoryId','stock','sold','sort','status','home','recommended','hot','isNew','gift','trial','trialOnly','freeShipping','enabled','description','skus','packagePlans'], categories: ['name','sort','enabled'], stores: ['name','contact','phone','address','image','imageCaption','gallery','hours','enabled','schedulingEnabled','appointmentDurationMinutes'], activities: ['name','image','description','productId','startAt','endAt','enabled'], alliances: ['name','image','description','phone','enabled'], rewards: ['name','image','points','stock','enabled'], homeModules: ['type','title','subtitle','image','sort','enabled','publishStatus','targetType','targetId','description'] }[collection];
+  const fields = { products: ['name','code','subtitle','brand','groupIds','keywords','gallery','image','detailImage','price','memberPrice','referencePrice','coursePrice','kind','categoryId','stock','sold','sort','status','home','recommended','hot','isNew','gift','trial','trialOnly','freeShipping','enabled','description','skus','packagePlans','visualMode'], categories: ['name','sort','enabled'], stores: ['name','contact','phone','address','image','imageCaption','gallery','hours','enabled','schedulingEnabled','appointmentDurationMinutes'], activities: ['name','image','description','productId','startAt','endAt','enabled'], alliances: ['name','image','description','phone','enabled'], rewards: ['name','image','points','stock','enabled'], homeModules: ['type','title','subtitle','image','sort','enabled','publishStatus','targetType','targetId','description'] }[collection];
   const out = Object.fromEntries(fields.filter(k => b[k] !== undefined).map(k => [k,b[k]]));
+  if(collection==='products'&&out.visualMode!==undefined&&!['image','studio'].includes(out.visualMode))fail('图片展示方式无效');
   if (collection === 'products' && b.recommended === undefined && b.home !== undefined) out.recommended = b.home === true;
   if(out.coursePrice===null)delete out.coursePrice;
   if (collection !== 'homeModules' && !text(out.name)) fail('名称不能为空');
@@ -136,13 +142,14 @@ async function route(req, url, b) {
   if (p === '/bootstrap') {
     let migrated=false; for (const [k,v] of Object.entries(configDefaults)) if (db.config[k] === undefined) { db.config[k]=v; migrated=true; }
     for (const u of db.users) { if (!Number.isInteger(u.points) || u.points < 0) { u.points=0; migrated=true; } if (!Number.isInteger(u.streak) || u.streak < 0) { u.streak=0; migrated=true; } if (typeof u.lastSign !== 'string') { u.lastSign=''; migrated=true; } if (typeof u.lastSignAt !== 'string') { u.lastSignAt=''; migrated=true; } }
-    if (db.config.name !== '暨美丽') { db.config.name='暨美丽'; migrated=true; }
-    if (typeof db.config.agreement !== 'string' || /玥色|月色|安棋|安琪|测试版|积分/.test(db.config.agreement)) { db.config.agreement=configDefaults.agreement; migrated=true; }
-    if (typeof db.config.privacy !== 'string' || /玥色|月色|安棋|安琪|测试版|积分/.test(db.config.privacy)) { db.config.privacy=configDefaults.privacy; migrated=true; }
+    if (presentation.migrate(db)) migrated=true;
+    if(db.config.version!==APP_VERSION){db.config.version=APP_VERSION;migrated=true;}
+    if (typeof db.config.agreement !== 'string' || !db.config.agreement.trim()) { db.config.agreement=configDefaults.agreement; migrated=true; }
+    if (typeof db.config.privacy !== 'string' || !db.config.privacy.trim()) { db.config.privacy=configDefaults.privacy; migrated=true; }
     const imageDefaults={homeImage:configDefaults.homeImage,heroTop:configDefaults.heroTop,heroBottom:configDefaults.heroBottom,storeDefaultImage:configDefaults.storeDefaultImage,brandLogo:configDefaults.brandLogo,welcome:configDefaults.welcome,hero:configDefaults.hero,brand:configDefaults.brand,projectPromo:configDefaults.projectPromo,storePromo:configDefaults.storePromo,customerQr:configDefaults.customerQr,pointsBanner:configDefaults.pointsBanner,serviceHeading:configDefaults.serviceHeading,productHeading:configDefaults.productHeading};
     for (const [k,v] of Object.entries(imageDefaults)) { const oldAsset = k === 'brandLogo' && ['/static/assets/brand-logo.png','/static/brand/logo.png','/static/logo.png'].includes(db.config[k]); const oldHome = k === 'homeImage' && db.config[k] === '/static/brand/jimeili-1-steamed-face.jpg'; const oldPromo = k === 'welcome' && ['/static/brand/jimeili-rejuvenation-info.jpg','/static/brand/jimeili-3-anti-wrinkle.jpg','/static/brand/jimeili-5-active-collagen.jpg'].includes(db.config[k]); const oldBrand = k === 'brand' && ['/static/brand/jimeili-rejuvenation-info.jpg','/static/assets/brand.jpg','/static/brand/store-cover-jimeili-v2.jpg','/static/brand/store-cover-jimeili.jpg'].includes(db.config[k]); const oldPoints = k === 'pointsBanner' && db.config[k] === '/static/brand/jimeili-nano-energy.jpg'; const oldProduct = k === 'productHeading' && db.config[k] === '/static/brand/jimeili-5-active-collagen.jpg'; const oldService = k === 'serviceHeading' && db.config[k] === '/static/brand/jimeili-3-anti-wrinkle.jpg'; const oldStore = k === 'storePromo' && ['/static/assets/store.jpg','/static/brand/store-cover.jpg','/static/brand/store-cover-jimeili.jpg'].includes(db.config[k]); if (typeof db.config[k] !== 'string' || oldAsset || oldHome || oldPromo || oldBrand || oldPoints || oldProduct || oldService || oldStore) { db.config[k]=v; migrated=true; } }
     for (const store of db.stores) {
-      if (['玥色塑美','月色塑美','安棋美容','安琪美容'].includes(store.name)) { store.name='暨美丽'; migrated=true; }
+      if (['玥色塑美','月色塑美','安棋美容','安琪美容'].includes(store.name)) { store.name=presentation.BRAND; migrated=true; }
       if (!store.image || store.image === '/static/brand/jimeili-rejuvenation-kit.jpg' || store.image === '/static/brand/store-cover.jpg' || store.image === '/static/brand/store-cover-jimeili.jpg' || store.image.includes('/static/assets/')) { store.image='/static/brand/store-cover-jimeili-v2.jpg'; migrated=true; }
       if (store.enabled === undefined) { store.enabled=true; migrated=true; }
       if (preserveStoreRecords(store)) migrated=true;
@@ -231,7 +238,7 @@ async function route(req, url, b) {
     if (db.config._categoryIdsNormalizedV1 !== true) { const featuredId = db.categories.find(c=>String(c.name||'').includes('特色'))?.id || 'category-featured'; const goodsId = db.categories.find(c=>String(c.name||'').includes('优选'))?.id || 'category-goods'; for (const product of db.products) { if (product.categoryId === 'category-featured') { product.categoryId=featuredId; migrated=true; } else if (product.categoryId === 'category-goods') { product.categoryId=goodsId; migrated=true; } else if (!product.categoryId) { product.categoryId = product.kind === 'goods' ? goodsId : featuredId; migrated=true; } } db.config._categoryIdsNormalizedV1=true; migrated=true; }
     for (const p of db.products) { normalizeProduct(p); if (!p.categoryId) { p.categoryId = p.kind === 'goods' ? 'category-goods' : 'category-featured'; migrated=true; } }
     if (migrated) save();
-    return { incomeRules: income.publicRules(db), config: db.config, products: db.products.filter(p => p.enabled && p.status === 'published').sort((a,b)=>(a.sort||0)-(b.sort||0)), categories: db.categories.filter(c => c.enabled !== false).sort((a,b)=>(a.sort||0)-(b.sort||0)), stores: db.stores.filter(s => s.enabled !== false), homeModules: db.homeModules.filter(m => m.enabled !== false && (m.publishStatus || 'published') === 'published').sort((a,b)=>(a.sort||0)-(b.sort||0)), demoMode: DEMO, paymentMode: MOCK_PAYMENT ? 'mock' : 'off' };
+    return { build:{businessVersion:APP_VERSION}, incomeRules: income.publicRules(db), config: db.config, products: db.products.filter(p => p.enabled && p.status === 'published').sort((a,b)=>(a.sort||0)-(b.sort||0)), categories: db.categories.filter(c => c.enabled !== false).sort((a,b)=>(a.sort||0)-(b.sort||0)), stores: db.stores.filter(s => s.enabled !== false), homeModules: db.homeModules.filter(m => m.enabled !== false && (m.publishStatus || 'published') === 'published').sort((a,b)=>(a.sort||0)-(b.sort||0)), demoMode: DEMO, paymentMode: MOCK_PAYMENT ? 'mock' : 'off' };
   }
 
   if (['/auth/register','/auth/account','/auth/demo'].includes(p)) fail('仅支持微信一键登录',403);
@@ -291,9 +298,10 @@ async function route(req, url, b) {
       for (const [k,v] of Object.entries(configDefaults)) if (db.config[k] === undefined) db.config[k] = v;
       if (method === 'GET') return db.config;
       if (method === 'PUT') {
+        try{presentation.validate(b);if(b.notificationTemplates!==undefined)b.notificationTemplates=notifications.validateTemplates(b.notificationTemplates)}catch(e){fail(e.message)}
         const bools=['subscriptionEnabled','messageReminderEnabled','marketingEnabled'];
-        const images=['homeImage','heroTop','heroBottom','storeDefaultImage','brandLogo','welcome','hero','brand','projectPromo','storePromo','customerQr','pointsBanner','serviceHeading','productHeading'];
-        const textKeys=['name','version','pointsRules','agreement','privacy','appointmentTimes','shortcutTrialLabel','shortcutVipLabel','shortcutShareLabel'];
+        const images=[...presentation.imageKeys,'homeImage','heroTop','heroBottom','storeDefaultImage','brandLogo','welcome','hero','brand','projectPromo','storePromo','customerQr','pointsBanner','serviceHeading','productHeading'];
+        const textKeys=[...presentation.textKeys,'name','version','pointsRules','agreement','privacy','appointmentTimes','shortcutTrialLabel','shortcutVipLabel','shortcutShareLabel'];
         const allowed=[...Object.keys(configDefaults)];
         for (const k of Object.keys(b)) {
           if (!allowed.includes(k)) continue;
@@ -308,11 +316,13 @@ async function route(req, url, b) {
           if (textKeys.includes(k) && (typeof v!=='string'||v.trim().length>20000)) fail('配置文本无效');
           db.config[k]=v;
         }
-        db.config.name='暨美丽';
+        db.config.version=APP_VERSION;
         db.audit ||= []; db.audit.unshift({id:id(),actor:req.headers['x-anqi-actor']||'admin',resource:'config',target:'config',method:'PUT',createdAt:new Date().toISOString()});
         save(); return db.config;
       }
     }
+    if(collection==='notifications'){if(method!=='GET')fail('方法不允许',405);notifications.init(db);return db.notifications.slice().reverse()}
+    if(collection==='notificationTemplates'){if(method!=='GET')fail('方法不允许',405);return notifications.templates()}
     if (collection === 'incomeRules') return income.manage(db,method,key,b,req.headers['x-anqi-actor']||'admin');
     if (collection === 'incomePlans') { if(method!=='GET')fail('方法不允许',405);income.settle(db);return db.incomePlans; }
     if (collection === 'earnings' && method === 'GET') income.settle(db);
@@ -352,10 +362,10 @@ async function route(req, url, b) {
     }
     if(method==='POST'&&collection==='orders'){
       const o=db.orders.find(x=>x.id===key);if(!o)fail('订单不存在',404);
-      if(b.action==='confirmPayment'){if(o.status!=='pending')fail('只有待付款订单可确认收款');if(!text(b.note))fail('请填写线下收款凭证说明');o.status=o.product.kind==='goods'?'shipping':'ready';o.paymentStatus='paid';o.paymentMode='offline';o.paymentNote=text(b.note);o.paidAt=new Date().toISOString();const p=db.products.find(x=>x.id===o.productId);if(p)p.sold+=o.quantity;}
+      if(b.action==='confirmPayment'){if(o.status!=='pending')fail('只有待付款订单可确认收款');if(!text(b.note))fail('请填写线下收款凭证说明');o.status=o.product.kind==='goods'?'shipping':'ready';o.paymentStatus='paid';o.paymentMode='offline';o.paymentNote=text(b.note);o.paidAt=new Date().toISOString();notifications.enqueue(db,'orderPaid',o);const p=db.products.find(x=>x.id===o.productId);if(p)p.sold+=o.quantity;}
       else if(b.action==='cancel'){if(o.status!=='pending')fail('只能取消未付款订单');o.status='cancelled';restore(o);}
-      else if(b.action==='ship'){if(o.status!=='shipping')fail('订单不是待取货状态');if(!text(b.tracking))fail('请填写物流单号或取货说明');o.tracking=text(b.tracking);}
-      else if(b.action==='refund'){if(!['ready','shipping','completed'].includes(o.status))fail('当前订单不可售后');if(o.refundStatus==='refunded')fail('订单已退款');if(o.package?.services.some(s=>s.used>0))fail('套餐已有核销记录，请联系门店处理售后，暂不支持部分退款');for(const a of db.appointments)if(a.orderId===o.id&&a.status==='booked'){a.status='cancelled';a.cancelReason='订单售后退款';}o.refundStatus='refunded';o.refundNote=text(b.note);o.status='aftersale';restore(o);o.refundAt=new Date().toISOString();}
+      else if(b.action==='ship'){if(o.status!=='shipping')fail('订单不是待取货状态');if(!text(b.tracking))fail('请填写物流单号或取货说明');o.tracking=text(b.tracking);notifications.enqueue(db,'orderShipped',o);}
+      else if(b.action==='refund'){if(!['ready','shipping','completed'].includes(o.status))fail('当前订单不可售后');if(o.refundStatus==='refunded')fail('订单已退款');if(o.package?.services.some(s=>s.used>0))fail('套餐已有核销记录，请联系门店处理售后，暂不支持部分退款');for(const a of db.appointments)if(a.orderId===o.id&&a.status==='booked'){a.status='cancelled';a.cancelReason='订单售后退款';notifications.enqueue(db,'appointmentCancelled',a);}o.refundStatus='refunded';o.refundNote=text(b.note);o.status='aftersale';restore(o);o.refundAt=new Date().toISOString();}
       else fail('不支持的订单操作');if(b.action==='refund')income.refund(db,o);else income.activate(db,o);income.settle(db);save();return o;
     }
     if(method==='POST'&&collection==='users'){
@@ -369,12 +379,12 @@ async function route(req, url, b) {
       if (method === 'POST') { const row = { ...(collection === 'products' ? {sold:0,status:'draft',enabled:false,sort:0,recommended:false,hot:false,isNew:false,keywords:[],gallery:[],skus:[]} : {}), ...(collection === 'stores' ? {enabled:true} : {}), ...(collection === 'homeModules' ? {publishStatus:'draft'} : {}), ...validate(collection,b), id: id(), createdAt:new Date().toISOString() }; if(collection==='products')normalizeProduct(row); if (collection === 'categories' && db.categories.some(c=>c.name === row.name)) fail('分类名称已存在'); if (collection === 'products' && row.categoryId && !db.categories.some(c=>c.id===row.categoryId)) fail('商品分类不存在'); db[collection].push(row); save(); return row; }
       const row = db[collection].find(x => x.id === key); if (!row) fail('记录不存在',404);
       if (collection === 'stores' && ['PUT','DELETE'].includes(method)) preserveStoreRecords(row);
-      if (method === 'PUT') { const patch={...b}; if(collection==='products' && b.recommended===undefined && b.home!==undefined)patch.recommended=b.home===true; const next=validate(collection,{ ...row,...patch }); if(collection==='products' && b.enabled!==undefined && b.status===undefined)next.status=b.enabled?'published':'offline'; if (collection === 'categories' && db.categories.some(c=>c.id!==key && c.name===next.name)) fail('分类名称已存在'); if (collection === 'products' && next.categoryId && !db.categories.some(c=>c.id===next.categoryId)) fail('商品分类不存在'); Object.assign(row,next); if(b.coursePrice===null)delete row.coursePrice; if (b.image && collection === 'products') row.needsArtwork = false; }
+      if (method === 'PUT') { const patch={...b}; if(collection==='products' && b.recommended===undefined && b.home!==undefined)patch.recommended=b.home===true; const next=validate(collection,{ ...row,...patch }); if(collection==='products'&&b.image!==undefined&&b.image!==row.image)next.visualMode='image'; if(collection==='products' && b.enabled!==undefined && b.status===undefined)next.status=b.enabled?'published':'offline'; if (collection === 'categories' && db.categories.some(c=>c.id!==key && c.name===next.name)) fail('分类名称已存在'); if (collection === 'products' && next.categoryId && !db.categories.some(c=>c.id===next.categoryId)) fail('商品分类不存在'); Object.assign(row,next); if(b.coursePrice===null)delete row.coursePrice; if (b.image && collection === 'products') row.needsArtwork = false; }
       else if (method === 'DELETE') { if (collection === 'categories' && db.categories.length <= 1) fail('至少保留一个商城分类'); if (collection === 'categories') { const fallback = db.categories.find(c => c.id !== key && c.enabled !== false) || db.categories.find(c => c.id !== key); for (const product of db.products) if (product.categoryId === key && fallback) product.categoryId = fallback.id; } db[collection] = db[collection].filter(x => x.id !== key); }
       else fail('方法不允许',405);
       if(collection==='products')normalizeProduct(row); save(); return { ok: true };
     }
-    if (method === 'PUT' && collection === 'appointments') { const row = db.appointments.find(x => x.id === key); if (!row) fail('记录不存在',404); if (row.status !== 'booked' || !['completed','cancelled'].includes(b.status)) fail('只有已预约记录可完成或取消，已结束预约不可再次修改'); if(b.status==='completed'){const order=db.orders.find(x=>x.id===row.orderId);if(order?.package)vipPackages.complete(order,row);else if(order?.status==='ready')order.status='completed';row.completedAt=new Date().toISOString()}row.status = b.status; const incomeOrder=db.orders.find(o=>o.id===row.orderId);if(incomeOrder)income.activate(db,incomeOrder);income.settle(db);save(); return row; }
+    if (method === 'PUT' && collection === 'appointments') { const row = db.appointments.find(x => x.id === key); if (!row) fail('记录不存在',404); if (row.status !== 'booked' || !['completed','cancelled'].includes(b.status)) fail('只有已预约记录可完成或取消，已结束预约不可再次修改'); if(b.status==='completed'){const order=db.orders.find(x=>x.id===row.orderId);if(order?.package)vipPackages.complete(order,row);else if(order?.status==='ready')order.status='completed';row.completedAt=new Date().toISOString()}row.status = b.status; const incomeOrder=db.orders.find(o=>o.id===row.orderId);if(incomeOrder)income.activate(db,incomeOrder);income.settle(db);notifications.enqueue(db,row.status==='completed'?'appointmentCompleted':'appointmentCancelled',row);save(); return row; }
     if (method === 'PUT' && collection === 'orders') { const row = db.orders.find(x => x.id === key); if (!row) fail('记录不存在',404); if(row.package)fail('套餐请在预约管理中按项目逐次核销'); if (!['ready','shipping'].includes(row.status) || b.status !== 'completed') fail('只有已支付订单可核销完成'); row.status = 'completed'; row.completedAt=new Date().toISOString(); for (const a of db.appointments) if (a.orderId === row.id && a.status === 'booked') a.status = 'completed'; income.activate(db,row);income.settle(db);save(); return row; }
     if (method === 'PUT' && collection === 'users') { const row = db.users.find(x => x.id === key); if (!row) fail('记录不存在',404); if(b.invited!==undefined)row.invited=b.invited===true;if(b.disabled!==undefined)row.disabled=b.disabled===true;save();return publicUser(row); }
     fail('操作不支持',405);
@@ -418,6 +428,8 @@ async function route(req, url, b) {
     }
     return {code,image:'/static/uploads/'+filename+'?v='+Date.now(),mode};
   }
+
+  if(p==='/subscriptions'){if(method==='GET')return {templates:notifications.options(db)};if(method==='POST'){let result;try{result=notifications.consent(db,u,b.acceptedTemplateIds)}catch(e){fail(e.message)}save();return result}fail('方法不允许',405)}
 
   if (p === '/me') { if (method === 'PUT') { if (!text(b.name,40)) fail('请输入姓名'); u.name = text(b.name,40); u.gender = ['male','female'].includes(b.gender) ? b.gender : ''; save(); } return publicUser(u); }
   if (p === '/sign' && method === 'POST') {
@@ -523,7 +535,7 @@ async function route(req, url, b) {
     if (p === '/appointment-options') return staffScheduling.options(db, store, b.date);
     const assignment = staffScheduling.reserve(db, store, b);
     const a = { id: id(), userId: u.id, ...(o ? { orderId:o.id, ...(entitlement ? { entitlementId:entitlement.id, packageName:o.product.name } : {}) } : { claimId:claim.id, productId:product.id }), name: product.name, storeId, store: storeSnapshot(store), ...assignment, date: b.date, time: b.time, status: 'booked', createdAt:new Date().toISOString() };
-    db.appointments.push(a);
+    db.appointments.push(a);notifications.enqueue(db,'appointmentBooked',a);
     // Each gift in a claim is reserved by its own appointment, not by the whole claim.
     save(); return a;
   }
@@ -571,7 +583,15 @@ const server = http.createServer(async (req,res) => {
 async function settleIncome(){return mysqlStore?mysqlStore.run(state=>income.settle(state)):runFile(()=>income.settle(db));}
 // 目录和配置迁移写在 /bootstrap 中；启动时先执行一次，避免首个用户端访问前后台读到未迁移的数据。
 async function migrateOnStart(){const req={method:'GET',headers:{}},url=new URL('/api/bootstrap','http://localhost');return mysqlStore?mysqlStore.run(state=>{db=state;return route(req,url,{})}):runFile(()=>route(req,url,{}));}
-async function start(){if(process.env.DB_NAME)mysqlStore=await require('./mysql-store.cjs')(seed());await migrateOnStart();await settleIncome();setInterval(()=>settleIncome().catch(e=>console.error('收益入账失败',e.message)),60000).unref();server.listen(Number(process.env.PORT || 3000),HOST,() => { console.log('暨美丽业务服务: http://' + HOST + ':' + (process.env.PORT || 3000) + '/api/health'); console.log('演示开关：' + DEMO); });}start().catch(e=>{console.error(e);process.exit(1)});
+let notificationWorkerBusy=false;
+async function drainNotifications(){
+ if(notificationWorkerBusy)return;notificationWorkerBusy=true;
+ const transaction=fn=>mysqlStore?mysqlStore.run(fn):runFile(()=>fn(db));
+ try{const item=await transaction(state=>{notifications.init(state);for(const row of state.notifications)if(row.status==='sending'&&Date.now()-Date.parse(row.startedAt)>60000){row.status='unknown';row.error='服务重启前发送结果未确认，未自动重发'}const job=state.notifications.find(row=>row.status==='pending');if(!job)return null;const user=state.users.find(u=>u.id===job.userId&&!u.disabled);if(!state.config.messageReminderEnabled||!state.config.subscriptionEnabled||!user?.openid){job.status='skipped';return null}job.status='sending';job.startedAt=new Date().toISOString();job.attempts++;return {job:JSON.parse(JSON.stringify(job)),openid:user.openid}});
+ if(item){let result;try{result=await notifications.send(item.job,item.openid)}catch{result={status:'failed',error:'微信消息服务暂不可用'}}await transaction(state=>{const row=state.notifications.find(n=>n.id===item.job.id);if(row)Object.assign(row,result,{finishedAt:new Date().toISOString()})})}
+ }finally{notificationWorkerBusy=false}
+}
+async function start(){if(process.env.DB_NAME)mysqlStore=await require('./mysql-store.cjs')(seed());await migrateOnStart();await settleIncome();setInterval(()=>drainNotifications().catch(()=>{}),5000).unref();setInterval(()=>settleIncome().catch(e=>console.error('收益入账失败',e.message)),60000).unref();server.listen(Number(process.env.PORT || 3000),HOST,() => { console.log('秀荣科技美肤业务服务: http://' + HOST + ':' + (process.env.PORT || 3000) + '/api/health'); console.log('演示开关：' + DEMO); });}start().catch(e=>{console.error(e);process.exit(1)});
 
 
 
