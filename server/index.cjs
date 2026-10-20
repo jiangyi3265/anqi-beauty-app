@@ -16,6 +16,11 @@ const FILE = process.env.DATA_FILE || path.join(__dirname, 'data/db.json');
 const DEMO = process.env.DEMO_MODE === 'true';
 const PAYMENT_MODE = process.env.PAYMENT_MODE || 'off';
 const MOCK_PAYMENT = PAYMENT_MODE === 'mock' && ['test','staging','development'].includes(process.env.NODE_ENV);
+const wechatPay = require('./wechat-pay.cjs');
+// 微信支付只在配置齐全时启用；配置不全时保持“门店收款”，并在启动日志列出缺少的配置项名称
+const WECHAT_PAY = PAYMENT_MODE === 'wechat' && wechatPay.configured();
+if (PAYMENT_MODE === 'wechat' && !WECHAT_PAY) console.error('微信支付未启用，缺少或无效的配置：' + wechatPay.problems().join('、'));
+const paymentModeName = () => MOCK_PAYMENT ? 'mock' : WECHAT_PAY ? 'wechat' : 'off';
 const HOST = process.env.HOST || '127.0.0.1';
 const sessions = new Map();
 let mysqlStore;
@@ -53,7 +58,8 @@ function token(userId, role = 'user') { const t = crypto.randomBytes(32).toStrin
 function session(req, admin = false) { if(admin && internal(req))return {role:"admin",userId:"admin"}; const s = sessions.get((req.headers.authorization || '').replace(/^Bearer /, '')); if (!s || s.expires < Date.now()) fail('请先登录', 401); if (admin && s.role !== 'admin') fail('无管理权限', 403); return s; }
 function user(req) { const s = session(req); const u = db.users.find(u => u.id === s.userId && !u.disabled); if (!u) fail('用户不存在', 401); return u; }
 function own(collection, key, u) { const item = db[collection].find(x => x.id === key && x.userId === u.id); if (!item) fail('记录不存在', 404); return item; }
-function expire() { let changed = false; for (const o of db.orders) if (o.status === 'pending' && Date.now() - Date.parse(o.createdAt) >= 7200000) { o.status = 'cancelled'; restore(o); changed = true; } if (changed) save(); }
+function expire() { let changed = false; for (const o of db.orders) if (o.status === 'pending' && !o.wechatPay?.prepayId && Date.now() - Date.parse(o.createdAt) >= 7200000) { o.status = 'cancelled'; restore(o); changed = true; } if (changed) save(); }
+function take(o) { const p = db.products.find(p => p.id === o.productId); if (!p) return; const sku=p.skus?.find(s => s.id===o.skuId); if (sku) sku.stock -= o.quantity; p.stock = p.skus?.length ? p.skus.filter(s=>s.enabled!==false).reduce((n,s)=>n+s.stock,0) : p.stock - o.quantity; }
 function restore(o) { const p = db.products.find(p => p.id === o.productId); if (!p) return; const sku=p.skus?.find(s => s.id===o.skuId); if (sku) sku.stock += o.quantity; p.stock = p.skus?.length ? p.skus.filter(s=>s.enabled!==false).reduce((n,s)=>n+s.stock,0) : p.stock + o.quantity; }
 async function body(req) { let buffer = ''; for await (const b of req) { buffer += b; if (buffer.length > 8 * 1024 * 1024) fail('内容过大', 413); } if (!buffer) return {}; let parsed; try { parsed = JSON.parse(buffer); } catch { fail('请求内容格式不正确'); } if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) fail('请求内容必须为对象'); return parsed; }
 const editable = ['products', 'categories', 'stores', 'activities', 'alliances', 'rewards', 'homeModules'];
@@ -138,7 +144,7 @@ function validate(collection, b) {
 async function route(req, url, b) {
   const p = url.pathname.replace(/^\/api/, ''); const method = req.method;
   expire();
-  if (p === '/health') return { ok: true, demoMode: DEMO, accountLogin: false, loginMode: 'wechat', wechatReady: wechat.configured(), paymentMode: MOCK_PAYMENT ? 'mock' : 'off' };
+  if (p === '/health') return { ok: true, demoMode: DEMO, accountLogin: false, loginMode: 'wechat', wechatReady: wechat.configured(), paymentMode: paymentModeName() };
   if (p === '/bootstrap') {
     let migrated=false; for (const [k,v] of Object.entries(configDefaults)) if (db.config[k] === undefined) { db.config[k]=v; migrated=true; }
     for (const u of db.users) { if (!Number.isInteger(u.points) || u.points < 0) { u.points=0; migrated=true; } if (!Number.isInteger(u.streak) || u.streak < 0) { u.streak=0; migrated=true; } if (typeof u.lastSign !== 'string') { u.lastSign=''; migrated=true; } if (typeof u.lastSignAt !== 'string') { u.lastSignAt=''; migrated=true; } }
@@ -238,7 +244,7 @@ async function route(req, url, b) {
     if (db.config._categoryIdsNormalizedV1 !== true) { const featuredId = db.categories.find(c=>String(c.name||'').includes('特色'))?.id || 'category-featured'; const goodsId = db.categories.find(c=>String(c.name||'').includes('优选'))?.id || 'category-goods'; for (const product of db.products) { if (product.categoryId === 'category-featured') { product.categoryId=featuredId; migrated=true; } else if (product.categoryId === 'category-goods') { product.categoryId=goodsId; migrated=true; } else if (!product.categoryId) { product.categoryId = product.kind === 'goods' ? goodsId : featuredId; migrated=true; } } db.config._categoryIdsNormalizedV1=true; migrated=true; }
     for (const p of db.products) { normalizeProduct(p); if (!p.categoryId) { p.categoryId = p.kind === 'goods' ? 'category-goods' : 'category-featured'; migrated=true; } }
     if (migrated) save();
-    return { build:{businessVersion:APP_VERSION}, incomeRules: income.publicRules(db), config: db.config, products: db.products.filter(p => p.enabled && p.status === 'published').sort((a,b)=>(a.sort||0)-(b.sort||0)), categories: db.categories.filter(c => c.enabled !== false).sort((a,b)=>(a.sort||0)-(b.sort||0)), stores: db.stores.filter(s => s.enabled !== false), homeModules: db.homeModules.filter(m => m.enabled !== false && (m.publishStatus || 'published') === 'published').sort((a,b)=>(a.sort||0)-(b.sort||0)), demoMode: DEMO, paymentMode: MOCK_PAYMENT ? 'mock' : 'off' };
+    return { build:{businessVersion:APP_VERSION}, incomeRules: income.publicRules(db), config: db.config, products: db.products.filter(p => p.enabled && p.status === 'published').sort((a,b)=>(a.sort||0)-(b.sort||0)), categories: db.categories.filter(c => c.enabled !== false).sort((a,b)=>(a.sort||0)-(b.sort||0)), stores: db.stores.filter(s => s.enabled !== false), homeModules: db.homeModules.filter(m => m.enabled !== false && (m.publishStatus || 'published') === 'published').sort((a,b)=>(a.sort||0)-(b.sort||0)), demoMode: DEMO, paymentMode: paymentModeName() };
   }
 
   if (['/auth/register','/auth/account','/auth/demo'].includes(p)) fail('仅支持微信一键登录',403);
@@ -362,10 +368,12 @@ async function route(req, url, b) {
     }
     if(method==='POST'&&collection==='orders'){
       const o=db.orders.find(x=>x.id===key);if(!o)fail('订单不存在',404);
+      if(['confirmPayment','cancel'].includes(b.action)&&o.status==='pending'&&o.wechatPay?.prepayId&&!req.wechatClosed)fail('订单支付状态确认中，请稍后重试',409);
+      if(b.action==='refund'&&o.paymentMode==='wechat'&&!req.wechatRefund)fail('微信支付订单需原路退款，请稍后重试',409);
       if(b.action==='confirmPayment'){if(o.status!=='pending')fail('只有待付款订单可确认收款');if(!text(b.note))fail('请填写线下收款凭证说明');o.status=o.product.kind==='goods'?'shipping':'ready';o.paymentStatus='paid';o.paymentMode='offline';o.paymentNote=text(b.note);o.paidAt=new Date().toISOString();notifications.enqueue(db,'orderPaid',o);const p=db.products.find(x=>x.id===o.productId);if(p)p.sold+=o.quantity;}
       else if(b.action==='cancel'){if(o.status!=='pending')fail('只能取消未付款订单');o.status='cancelled';restore(o);}
       else if(b.action==='ship'){if(o.status!=='shipping')fail('订单不是待取货状态');if(!text(b.tracking))fail('请填写物流单号或取货说明');o.tracking=text(b.tracking);notifications.enqueue(db,'orderShipped',o);}
-      else if(b.action==='refund'){if(!['ready','shipping','completed'].includes(o.status))fail('当前订单不可售后');if(o.refundStatus==='refunded')fail('订单已退款');if(o.package?.services.some(s=>s.used>0))fail('套餐已有核销记录，请联系门店处理售后，暂不支持部分退款');for(const a of db.appointments)if(a.orderId===o.id&&a.status==='booked'){a.status='cancelled';a.cancelReason='订单售后退款';notifications.enqueue(db,'appointmentCancelled',a);}o.refundStatus='refunded';o.refundNote=text(b.note);o.status='aftersale';restore(o);o.refundAt=new Date().toISOString();}
+      else if(b.action==='refund'){if(!['ready','shipping','completed'].includes(o.status))fail('当前订单不可售后');if(o.refundStatus==='refunded')fail('订单已退款');if(o.package?.services.some(s=>s.used>0))fail('套餐已有核销记录，请联系门店处理售后，暂不支持部分退款');for(const a of db.appointments)if(a.orderId===o.id&&a.status==='booked'){a.status='cancelled';a.cancelReason='订单售后退款';notifications.enqueue(db,'appointmentCancelled',a);}o.refundStatus='refunded';o.refundNote=text(b.note);o.status='aftersale';restore(o);o.refundAt=new Date().toISOString();if(req.wechatRefund)o.wechatRefund=req.wechatRefund;}
       else fail('不支持的订单操作');if(b.action==='refund')income.refund(db,o);else income.activate(db,o);income.settle(db);save();return o;
     }
     if(method==='POST'&&collection==='users'){
@@ -468,15 +476,16 @@ async function route(req, url, b) {
     const o = own('orders',orderMatch[1],u); if (method === 'GET') return o;
     if (method !== 'POST') fail('方法不允许',405);
     if (orderMatch[2] === 'pay') {
-      if (!MOCK_PAYMENT) fail('微信支付尚未接入，当前环境不允许支付',503);
+      if (!MOCK_PAYMENT) fail('当前未开通在线支付，请联系门店付款',503);
       if (!['success','failure','cancel'].includes(b.outcome)) fail('请选择有效模拟支付结果');
       if (!text(req.headers['idempotency-key'],128)) fail('支付请求缺少幂等标识');
       if (o.paymentStatus === 'paid') return o;
     }
     if (o.status !== 'pending') fail('订单状态已变化');
+    if (orderMatch[2] === 'cancel' && o.wechatPay?.prepayId && !req.wechatClosed) fail('订单支付状态确认中，请稍后重试',409);
     if (orderMatch[2] === 'cancel') { o.status = 'cancelled'; restore(o); }
     else if (orderMatch[2] === 'pay') {
-      if (!MOCK_PAYMENT) fail('微信支付尚未接入，当前环境不允许支付',503);
+      if (!MOCK_PAYMENT) fail('当前未开通在线支付，请联系门店付款',503);
       const outcome = b.outcome;
       const idempotencyKey = text(req.headers['idempotency-key'],128);
       db.paymentAudits ||= [];
@@ -568,7 +577,8 @@ const server = http.createServer(async (req,res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
   try {
     const url = new URL(req.url,'http://localhost');
-    if (url.pathname.startsWith('/api/')) { const payload=['POST','PUT'].includes(req.method)?await body(req):{};const result=mysqlStore?await mysqlStore.run(async state=>{db=state;sessions.clear();for(const r of db.sessions||[])if(r.expires>Date.now())sessions.set(r.id,r);const value=await route(req,url,payload);db.sessions=[...sessions].map(([id,r])=>({id,...r}));return value}):await runFile(()=>route(req,url,payload)); if(result?.httpStatus){res.statusCode=result.httpStatus;delete result.httpStatus;} res.setHeader('Content-Type','application/json; charset=utf-8'); res.setHeader('Cache-Control','no-store'); return res.end(JSON.stringify(result,(key,value)=>key==='incomeSnapshot'?undefined:value)); }
+    if (url.pathname === '/api/pay/notify' && req.method === 'POST') return wechatNotify(req,res);
+    if (url.pathname.startsWith('/api/')) { const payload=['POST','PUT'].includes(req.method)?await body(req):{};let result=WECHAT_PAY?await wechatRoute(req,url,payload):undefined;if(result===undefined)result=await txn(()=>route(req,url,payload)); if(result?.httpStatus){res.statusCode=result.httpStatus;delete result.httpStatus;} res.setHeader('Content-Type','application/json; charset=utf-8'); res.setHeader('Cache-Control','no-store'); return res.end(JSON.stringify(result,(key,value)=>key==='incomeSnapshot'?undefined:value)); }
     if (url.pathname === '/admin' || url.pathname.startsWith('/admin/')) fail('请使用若依管理端',404);
     const isStatic = url.pathname.startsWith('/static/');
     const base = isStatic ? path.join(ROOT,'static') : path.join(ROOT,'dist/build/h5');
@@ -580,6 +590,128 @@ const server = http.createServer(async (req,res) => {
     res.setHeader('Content-Type',mime[path.extname(file)] || 'application/octet-stream'); fs.createReadStream(file).pipe(res);
   } catch (e) { res.statusCode = e.status || 500; res.setHeader('Content-Type','application/json; charset=utf-8'); res.end(JSON.stringify({ error: e.status ? e.message : '服务器异常' })); if (!e.status) console.error(e); }
 });
+// 每个请求在一个数据库事务里处理（文件库为串行队列）；调用微信接口前后各开一次事务，网络请求期间不占用事务
+function txn(fn){return mysqlStore?mysqlStore.run(async state=>{db=state;sessions.clear();for(const r of db.sessions||[])if(r.expires>Date.now())sessions.set(r.id,r);const value=await fn();db.sessions=[...sessions].map(([id,r])=>({id,...r}));return value}):runFile(fn);}
+const clone=v=>JSON.parse(JSON.stringify(v));
+function paymentAudit(o,fields){db.paymentAudits||=[];const row={id:id(),orderId:o?.id||'',userId:o?.userId||'',mode:'wechat',amount:o?.total??0,createdAt:new Date().toISOString(),...fields};db.paymentAudits.push(row);return row;}
+// 应用一笔已验签的微信交易：校验商户号、小程序、订单号和金额后标记已付款；重复通知不重复入账
+function applyWechatPayment(tx,source){
+  const o=db.orders.find(x=>x.number===tx.out_trade_no);
+  if(!o){paymentAudit(null,{outcome:'rejected',source,transactionId:tx.transaction_id||'',reason:'订单不存在：'+String(tx.out_trade_no||'')});save();return null;}
+  const reason=wechatPay.mismatch(tx,o);
+  if(reason){paymentAudit(o,{outcome:'rejected',source,transactionId:tx.transaction_id||'',reason});save();return o;}
+  if(tx.trade_state!=='SUCCESS')return o;
+  if(o.paymentStatus==='paid'){
+    if(o.paymentTransactionId!==tx.transaction_id&&!(db.paymentAudits||[]).some(a=>a.transactionId===tx.transaction_id&&a.outcome==='duplicate')){o.duplicatePayment={transactionId:tx.transaction_id,amount:o.total,at:new Date().toISOString()};paymentAudit(o,{outcome:'duplicate',source,transactionId:tx.transaction_id,reason:(o.paymentMode==='offline'?'门店已确认线下收款':'订单已付款')+'，顾客又通过微信付款，请在微信支付商户平台退还这笔款项'});save();}
+    return o;
+  }
+  if(o.status==='cancelled'){take(o);o.paymentNote='订单取消后收到微信付款，已恢复为已付款订单';}
+  else if(o.status!=='pending'){paymentAudit(o,{outcome:'rejected',source,transactionId:tx.transaction_id,reason:'订单状态为'+o.status+'，未自动入账，请人工核对'});save();return o;}
+  o.paymentStatus='paid';o.paymentMode='wechat';o.paymentTransactionId=tx.transaction_id;o.paidAt=new Date().toISOString();o.wechatSuccessTime=tx.success_time||'';
+  o.status=o.product.kind==='goods'?'shipping':'ready';const p=db.products.find(x=>x.id===o.productId);if(p)p.sold+=o.quantity;
+  paymentAudit(o,{outcome:'success',source,transactionId:tx.transaction_id});notifications.enqueue(db,'orderPaid',o);income.activate(db,o);income.settle(db);save();return o;
+}
+function applyWechatRefund(r){
+  const o=db.orders.find(x=>x.wechatRefund?.outRefundNo===r.out_refund_no);if(!o)return null;
+  if(['SUCCESS','CLOSED','ABNORMAL'].includes(r.refund_status||r.status)){const status=r.refund_status||r.status;if(o.wechatRefund.status!==status){o.wechatRefund={...o.wechatRefund,status,successTime:r.success_time||'',checkedAt:new Date().toISOString()};paymentAudit(o,{outcome:'refund-'+status.toLowerCase(),source:'refund',transactionId:o.paymentTransactionId,refundId:r.refund_id||''});}}
+  else o.wechatRefund.checkedAt=new Date().toISOString();
+  save();return o;
+}
+// 关闭已发起的微信支付订单；若顾客其实已付款，则改为入账并返回 paid=true
+async function closeWechatOrder(number){
+  try{await wechatPay.close(number);return {paid:false};}
+  catch(e){
+    if(e.code==='ORDER_NOT_EXIST')return {paid:false};
+    if(e.code!=='ORDERPAID')throw e;
+    const tx=await wechatPay.query(number);await txn(()=>applyWechatPayment(tx,'query'));return {paid:true};
+  }
+}
+async function wechatNotify(req,res){
+  let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>65536){res.statusCode=413;return res.end();}}
+  const reply=(status,message)=>{res.statusCode=status;res.setHeader('Content-Type','application/json; charset=utf-8');res.end(status===200?'':JSON.stringify({code:'FAIL',message}));};
+  let event;try{event=await wechatPay.parseNotify(req.headers,raw);}catch(e){console.error('微信支付回调已拒绝：'+e.message);return reply(401,'签名验证失败');}
+  try{
+    if(event.eventType.startsWith('TRANSACTION.'))await txn(()=>applyWechatPayment(event.data,'notify'));
+    else if(event.eventType.startsWith('REFUND.'))await txn(()=>applyWechatRefund(event.data));
+    return reply(200);
+  }catch(e){console.error('微信支付回调处理失败',e.message);return reply(500,'处理失败，请重试');}
+}
+// 需要调用微信接口的请求：小程序下单支付/查单、取消已发起支付的订单、后台收款/取消/退款。返回 undefined 表示交给普通流程
+async function wechatRoute(req,url,b){
+  const p=url.pathname.replace(/^\/api/,''),method=req.method;
+  const mine=p.match(/^\/orders\/([^/]+)\/(pay|cancel)$/);
+  if(mine&&method==='POST'){
+    const orderId=mine[1];
+    if(mine[2]==='cancel'){
+      const prep=await txn(()=>{const u=user(req);const o=own('orders',orderId,u);return o.status==='pending'&&o.wechatPay?.prepayId?o.number:null;});
+      if(!prep)return undefined;
+      if((await closeWechatOrder(prep)).paid)fail('订单已通过微信支付，无法取消',409);
+      req.wechatClosed=true;return undefined;
+    }
+    if(b.sync){
+      const prep=await txn(()=>{const u=user(req);const o=own('orders',orderId,u);return o.status==='pending'&&o.wechatPay?.prepayId?o.number:null;});
+      if(prep){const tx=await wechatPay.query(prep).catch(e=>e.code==='ORDER_NOT_EXIST'?null:Promise.reject(e));if(tx?.trade_state==='SUCCESS')await txn(()=>applyWechatPayment(tx,'query'));}
+      return txn(()=>own('orders',orderId,user(req)));
+    }
+    const prep=await txn(()=>{
+      expire();const u=user(req);const o=own('orders',orderId,u);
+      if(o.paymentStatus==='paid')return {order:o};
+      if(o.status!=='pending')fail('订单状态已变化');
+      if(!(wechatPay.cents(o.total)>0))fail('0元订单无需在线支付，请联系门店确认');
+      if(!u.openid||u.wechatAppId!==process.env.WECHAT_APPID)fail('请在小程序内使用微信登录后支付');
+      if(Date.now()>wechatPay.expireAt(o)-60000)fail('订单已超过支付时间，请重新下单');
+      return {order:clone(o),openid:u.openid,prepayId:o.wechatPay?.prepayId||''};
+    });
+    if(prep.order.paymentStatus==='paid')return {order:prep.order,paid:true};
+    // 同一订单号重复下单时微信返回同一预支付单；本地已有预支付单则直接复用
+    const prepayId=prep.prepayId||await wechatPay.prepay(prep.order,prep.openid);
+    return txn(()=>{
+      const u=user(req);const o=own('orders',orderId,u);
+      if(o.paymentStatus==='paid')return {order:o,paid:true};
+      if(o.status!=='pending')fail('订单状态已变化');
+      if(o.wechatPay?.prepayId!==prepayId){o.wechatPay={prepayId,prepayAt:new Date().toISOString(),expireAt:new Date(wechatPay.expireAt(o)).toISOString()};paymentAudit(o,{outcome:'prepay',source:'customer'});save();}
+      return {order:o,payment:wechatPay.payParams(prepayId)};
+    });
+  }
+  const adminOrder=p.match(/^\/admin\/orders\/([^/]+)$/);
+  if(adminOrder&&method==='POST'&&['confirmPayment','cancel','refund'].includes(b.action)){
+    const prep=await txn(()=>{session(req,true);const o=db.orders.find(x=>x.id===adminOrder[1]);if(!o)fail('订单不存在',404);return clone(o);});
+    if(b.action==='refund'){
+      if(prep.paymentMode!=='wechat')return undefined;
+      const blocked=!['ready','shipping','completed'].includes(prep.status)?'当前订单不可售后':prep.refundStatus==='refunded'?'订单已退款':prep.package?.services?.some(s=>s.used>0)?'套餐已有核销记录，请联系门店处理售后，暂不支持部分退款':'';
+      if(blocked)fail(blocked);
+      const r=await wechatPay.refund(prep,b.note);
+      req.wechatRefund={outRefundNo:r.out_refund_no||wechatPay.refundNo(prep),refundId:r.refund_id||'',status:r.status||'PROCESSING',requestedAt:new Date().toISOString()};
+      // 微信已受理即留痕；同一退款单号重复提交时微信按同一笔处理，后台重试不会重复退款
+      await txn(()=>{const o=db.orders.find(x=>x.id===prep.id);paymentAudit(o,{outcome:'refund-requested',source:'admin',transactionId:prep.paymentTransactionId,refundId:req.wechatRefund.refundId,outRefundNo:req.wechatRefund.outRefundNo});save();});
+      return undefined;
+    }
+    if(prep.status!=='pending'||!prep.wechatPay?.prepayId)return undefined;
+    if((await closeWechatOrder(prep.number)).paid)fail('顾客已通过微信支付，订单已自动入账，无需再'+(b.action==='cancel'?'取消':'确认收款'),409);
+    req.wechatClosed=true;return undefined;
+  }
+  return undefined;
+}
+// 对账：每分钟查一次已发起支付但未入账的订单；超时未付则关闭微信订单并取消；退款处理中的订单查询退款结果
+let reconcileBusy=false;
+async function reconcileWechat(){
+  if(!WECHAT_PAY||reconcileBusy)return;reconcileBusy=true;
+  try{
+    const jobs=await txn(()=>{const now=Date.now();return {
+      pay:db.orders.filter(o=>o.status==='pending'&&o.wechatPay?.prepayId&&now-Date.parse(o.wechatPay.checkedAt||o.wechatPay.prepayAt)>=60000).slice(0,20).map(o=>({id:o.id,number:o.number,expireAt:Date.parse(o.wechatPay.expireAt)})),
+      refunds:db.orders.filter(o=>o.wechatRefund?.status==='PROCESSING'&&now-Date.parse(o.wechatRefund.checkedAt||o.wechatRefund.requestedAt)>=60000).slice(0,20).map(o=>o.wechatRefund.outRefundNo)};});
+    for(const job of jobs.pay){
+      try{
+        const tx=await wechatPay.query(job.number).catch(e=>e.code==='ORDER_NOT_EXIST'?null:Promise.reject(e));
+        if(tx?.trade_state==='SUCCESS'){await txn(()=>applyWechatPayment(tx,'query'));continue;}
+        const expired=Date.now()>job.expireAt+60000;
+        if(expired&&(await closeWechatOrder(job.number)).paid)continue;
+        await txn(()=>{const o=db.orders.find(x=>x.id===job.id);if(!o||o.status!=='pending')return;if(expired){o.status='cancelled';o.cancelReason='超时未支付，已关闭微信支付订单';restore(o);}else o.wechatPay.checkedAt=new Date().toISOString();save();});
+      }catch(e){console.error('微信支付对账失败',job.number,e.message);}
+    }
+    for(const no of jobs.refunds){try{const r=await wechatPay.queryRefund(no);await txn(()=>applyWechatRefund(r));}catch(e){console.error('微信退款查询失败',no,e.message);}}
+  }finally{reconcileBusy=false;}
+}
 async function settleIncome(){return mysqlStore?mysqlStore.run(state=>income.settle(state)):runFile(()=>income.settle(db));}
 // 目录和配置迁移写在 /bootstrap 中；启动时先执行一次，避免首个用户端访问前后台读到未迁移的数据。
 async function migrateOnStart(){const req={method:'GET',headers:{}},url=new URL('/api/bootstrap','http://localhost');return mysqlStore?mysqlStore.run(state=>{db=state;return route(req,url,{})}):runFile(()=>route(req,url,{}));}
@@ -591,7 +723,7 @@ async function drainNotifications(){
  if(item){let result;try{result=await notifications.send(item.job,item.openid)}catch{result={status:'failed',error:'微信消息服务暂不可用'}}await transaction(state=>{const row=state.notifications.find(n=>n.id===item.job.id);if(row)Object.assign(row,result,{finishedAt:new Date().toISOString()})})}
  }finally{notificationWorkerBusy=false}
 }
-async function start(){if(process.env.DB_NAME)mysqlStore=await require('./mysql-store.cjs')(seed());await migrateOnStart();await settleIncome();setInterval(()=>drainNotifications().catch(()=>{}),5000).unref();setInterval(()=>settleIncome().catch(e=>console.error('收益入账失败',e.message)),60000).unref();server.listen(Number(process.env.PORT || 3000),HOST,() => { console.log('秀荣科技美肤业务服务: http://' + HOST + ':' + (process.env.PORT || 3000) + '/api/health'); console.log('演示开关：' + DEMO); });}start().catch(e=>{console.error(e);process.exit(1)});
+async function start(){if(process.env.DB_NAME)mysqlStore=await require('./mysql-store.cjs')(seed());await migrateOnStart();await settleIncome();await reconcileWechat().catch(e=>console.error('微信支付对账失败',e.message));setInterval(()=>reconcileWechat().catch(e=>console.error('微信支付对账失败',e.message)),60000).unref();setInterval(()=>drainNotifications().catch(()=>{}),5000).unref();setInterval(()=>settleIncome().catch(e=>console.error('收益入账失败',e.message)),60000).unref();server.listen(Number(process.env.PORT || 3000),HOST,() => { console.log('秀荣科技美肤业务服务: http://' + HOST + ':' + (process.env.PORT || 3000) + '/api/health'); console.log('演示开关：' + DEMO); });}start().catch(e=>{console.error(e);process.exit(1)});
 
 
 
