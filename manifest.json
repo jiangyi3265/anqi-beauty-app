@@ -3,8 +3,8 @@
     "name" : "秀荣科技美肤",
     "appid" : "__UNI__1AD0E65",
     "description" : "",
-    "versionName" : "1.1.31",
-    "versionCode" : 135,
+    "versionName" : "1.1.35",
+    "versionCode" : 139,
     "transformPx" : false,
     /* 5+App特有相关 */
     "app-plus" : {
@@ -53,7 +53,7 @@
     "mp-weixin" : {
         "appid" : "wx1e9453a0ddc8385d",
         "setting" : {
-            "urlCheck" : false
+            "urlCheck" : true
         },
         "usingComponents" : true
     },
