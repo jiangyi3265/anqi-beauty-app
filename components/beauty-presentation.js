@@ -51,7 +51,7 @@ export default function decorateScreen(base) {
       homeContentModules(){return this.homeModules.filter(m=>m.type!=='banner')},
 
       title() {
-        if (this.page === 'gifts') return this.giftType === 'vip' ? '贵宾卡十选三' : '三项体验卡'
+        if (this.page === 'gifts') { const cn = n => n >= 1 && n <= 10 ? '一二三四五六七八九十'[n - 1] : String(n); return this.giftType === 'vip' ? '贵宾卡' + cn(this.giftProducts.length || 10) + '选' + cn(this.maxGiftCount) : cn(this.maxGiftCount) + '项体验卡' }
         if (this.page === 'legal') return this.legalTitle
         if (this.page === 'stores' && this.displayStore) return shortStoreName(this.displayStore)
         if (this.page === 'booking' && this.bookingResult) return '预约结果'
@@ -64,7 +64,7 @@ export default function decorateScreen(base) {
       homeFeatured() { const limit=Number(this.config.homeFeaturedLimit)||0;return limit>0?this.featuredProducts.slice(0,limit):this.featuredProducts },
       isVipCategory() { return /VIP|套餐/.test(this.selectedMallCategoryName) },
       mallProducts() { return base.computed.mallProducts.call(this).slice().sort((a,b) => Number(b.home === true) - Number(a.home === true) || (a.sort || 0) - (b.sort || 0)) },
-      maxGiftCount() { return Math.max(1, Number(this.config.maxGifts) || 3) },
+      maxGiftCount() { const n = this.giftType === 'trial' ? (this.config.trialPick ?? this.config.maxGifts) : this.config.maxGifts; return Math.max(1, Number(n) || 3) },
       packageHeroProduct() { return this.selectedPackagePlan?.services?.find(service => deviceColumn(service) >= 0) || {name:this.product?.name,image:this.product?.image} },
       canClaim() { return !this.loading && !this.busy && !this.error && this.giftEligible && this.selectedGifts.length === this.maxGiftCount },
       profileValid() { return !!String(this.form.name || '').trim() && ['male', 'female'].includes(this.form.gender) },

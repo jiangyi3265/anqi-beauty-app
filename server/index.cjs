@@ -25,10 +25,12 @@ const paymentModeName = () => MOCK_PAYMENT ? 'mock' : WECHAT_PAY ? 'wechat' : 'o
 const HOST = process.env.HOST || '127.0.0.1';
 const sessions = new Map();
 let mysqlStore;
+// 会员等级：本人已付款、未退款、未取消的 VIP 套餐中价格最高的一档；没有则为空
+function vipLevel(u){const held=db.orders.filter(o=>o.userId===u.id&&o.product?.packagePlans?.length&&o.paymentStatus==='paid'&&o.refundStatus!=='refunded'&&!['cancelled','pending','aftersale'].includes(o.status));if(!held.length)return null;const top=held.reduce((a,o)=>Number(o.product.memberPrice??o.product.price)>Number(a.product.memberPrice??a.product.price)?o:a);const name=String(top.product.name||'VIP').replace(/套餐$/,'');return {name:name.endsWith('会员')?name:name+'会员',productId:top.productId,orderId:top.id}}
 const publicUser=u=>({...Object.fromEntries(Object.entries(u).filter(([k])=>!['openid','unionid','session_key','wechatAppId','wechatLoginCodes','password','salt','hash','subscriptionCredits','adminNote','offlineRequestId','offlineFingerprint'].includes(k))),wechatBound:!!u.openid});
 const internal=req=>process.env.INTERNAL_SECRET && req.headers['x-anqi-internal']===process.env.INTERNAL_SECRET;
 const attempts = new Map();
-const configDefaults = { name: '暨美丽', version: '1.0.9', appointmentCapacity: 1, appointmentTimes: '09:00,10:00,11:00,14:00,15:00,16:00,17:00,18:00', shortcutTrialLabel: '体验卡', shortcutVipLabel: '贵宾卡', shortcutShareLabel: '邀请码', homeImage: '/static/brand/hero-middle.jpg', heroTop: '/static/brand/hero-top-jimeili-v2.jpg', heroBottom: '/static/brand/hero-bottom-v2.jpg', storeDefaultImage: '/static/brand/store-cover-jimeili-v2.jpg', brandLogo: '/static/brand/logo-jimeili.png', welcome: '/static/assets/service-heading.jpg', hero: '/static/brand/jimeili-1-steamed-face.jpg', brand: '/static/brand/brand-jimeili.png', projectPromo: '/static/assets/service-heading.jpg', storePromo: '/static/brand/store-cover-jimeili-v2.jpg', customerQr: '', pointsBanner: '/static/assets/points-banner.jpg', serviceHeading: '/static/assets/service-heading.jpg', productHeading: '/static/assets/product-heading.jpg', signPoints: 100, maxGifts: 3, pointsRules: '每日可签到一次，签到获得100积分。积分可用于兑换后台已上架的积分商品。', subscriptionEnabled: true, messageReminderEnabled: true, marketingEnabled: true, agreement: '本协议说明您使用暨美丽小程序时的服务规则。您在注册、登录、下单、预约、领取礼品前，请核对商品、价格、库存、门店、数量和联系方式。您应遵守法律法规及平台规则，不得从事违法、欺诈、骚扰或损害他人权益的行为。订单、预约、礼品和售后以小程序及后台实时记录为准。如有疑问，请通过客服或门店渠道咨询。经营方会在法律允许范围内调整服务规则，并在小程序内公布调整内容。', privacy: '本隐私政策说明暨美丽在提供微信登录、商品购买、门店预约、订单履约、礼品领取和客服服务时的信息处理方式。我们仅在实现相应功能所必需的范围内处理微信身份标识、昵称头像、联系方式、收货地址、订单、预约和设备运行信息，不会向前端展示微信密钥或会话密钥。您可以通过个人中心、客服或门店渠道咨询、更正或删除相关信息。政策发生重大变化时，我们会在小程序内提示。正式上线前请经营方根据实际主体和业务完成审核。' };
+const configDefaults = { name: '暨美丽', version: '1.0.9', appointmentCapacity: 1, appointmentTimes: '09:00,10:00,11:00,14:00,15:00,16:00,17:00,18:00', shortcutTrialLabel: '体验卡', shortcutVipLabel: '贵宾卡', shortcutShareLabel: '邀请码', homeImage: '/static/brand/hero-middle.jpg', heroTop: '/static/brand/hero-top-jimeili-v2.jpg', heroBottom: '/static/brand/hero-bottom-v2.jpg', storeDefaultImage: '/static/brand/store-cover-jimeili-v2.jpg', brandLogo: '/static/brand/logo-jimeili.png', welcome: '/static/assets/service-heading.jpg', hero: '/static/brand/jimeili-1-steamed-face.jpg', brand: '/static/brand/brand-jimeili.png', projectPromo: '/static/assets/service-heading.jpg', storePromo: '/static/brand/store-cover-jimeili-v2.jpg', customerQr: '', pointsBanner: '/static/assets/points-banner.jpg', serviceHeading: '/static/assets/service-heading.jpg', productHeading: '/static/assets/product-heading.jpg', signPoints: 100, maxGifts: 3, trialPick: 3, trialUses: 1, pointsRules: '每日可签到一次，签到获得100积分。积分可用于兑换后台已上架的积分商品。', subscriptionEnabled: true, messageReminderEnabled: true, marketingEnabled: true, agreement: '本协议说明您使用暨美丽小程序时的服务规则。您在注册、登录、下单、预约、领取礼品前，请核对商品、价格、库存、门店、数量和联系方式。您应遵守法律法规及平台规则，不得从事违法、欺诈、骚扰或损害他人权益的行为。订单、预约、礼品和售后以小程序及后台实时记录为准。如有疑问，请通过客服或门店渠道咨询。经营方会在法律允许范围内调整服务规则，并在小程序内公布调整内容。', privacy: '本隐私政策说明暨美丽在提供微信登录、商品购买、门店预约、订单履约、礼品领取和客服服务时的信息处理方式。我们仅在实现相应功能所必需的范围内处理微信身份标识、昵称头像、联系方式、收货地址、订单、预约和设备运行信息，不会向前端展示微信密钥或会话密钥。您可以通过个人中心、客服或门店渠道咨询、更正或删除相关信息。政策发生重大变化时，我们会在小程序内提示。正式上线前请经营方根据实际主体和业务完成审核。' };
 Object.assign(configDefaults,presentation.defaults,{version:APP_VERSION});
 const adminPassword = process.env.ADMIN_PASSWORD || crypto.randomBytes(12).toString('hex');
 if (!DEMO && !process.env.ADMIN_PASSWORD) throw new Error('正式环境必须设置 ADMIN_PASSWORD');
@@ -291,7 +293,7 @@ async function route(req, url, b) {
       const valid = match[1] === 'png' ? bytes.subarray(0,8).toString('hex') === '89504e470d0a1a0a' : match[1] === 'jpeg' ? bytes.subarray(0,3).toString('hex') === 'ffd8ff' : bytes.subarray(0,4).toString() === 'RIFF' && bytes.subarray(8,12).toString() === 'WEBP';
       if (!valid) fail('图片格式不正确'); const filename = id() + '.' + (match[1] === 'jpeg' ? 'jpg' : match[1]); const dir = path.join(ROOT,'static/uploads'); fs.mkdirSync(dir,{recursive:true}); fs.writeFileSync(path.join(dir,filename),bytes); const asset={id:id(),url:'/static/uploads/'+filename,originalName:text(b.name,120),mime:'image/'+match[1],size:bytes.length,createdAt:new Date().toISOString()}; db.assets.unshift(asset); save(); return asset;
     }
-    if (collection === 'dashboard') return { users: db.users.length, orders: db.orders.length, revenue: db.orders.filter(o => ['ready','completed','shipping'].includes(o.status)).reduce((s,o) => s + o.total, 0), appointments: db.appointments.length, products: db.products.filter(p => p.enabled).length, lowStock: db.products.filter(p => p.enabled && p.stock < 10).length, demoMode: DEMO };
+    if (collection === 'dashboard') { const dayStart=Date.parse(day()+'T00:00:00+08:00'),todayPaid=db.orders.filter(o=>o.paymentStatus==='paid'&&o.refundStatus!=='refunded'&&!['cancelled','pending'].includes(o.status)&&Date.parse(o.paidAt)>=dayStart&&(!o.offlineRequestId||Date.parse(o.createdAt)>=dayStart)); return { todayRevenue: Math.round(todayPaid.reduce((s,o)=>s+Math.round(Number(o.total)*100),0))/100, todayPaidOrders: todayPaid.length, users: db.users.length, orders: db.orders.length, revenue: db.orders.filter(o => ['ready','completed','shipping'].includes(o.status)).reduce((s,o) => s + o.total, 0), appointments: db.appointments.length, products: db.products.filter(p => p.enabled).length, lowStock: db.products.filter(p => p.enabled && p.stock < 10).length, demoMode: DEMO }; }
     if (collection === 'assets') {
       if (method === 'GET') return db.assets;
       if (method !== 'DELETE') fail('方法不允许',405);
@@ -315,6 +317,7 @@ async function route(req, url, b) {
           const v=b[k];
           if (bools.includes(k) && typeof v!=='boolean') fail('配置开关无效');
           if (['maxGifts','appointmentCapacity','signPoints'].includes(k) && (!Number.isInteger(v)||v<1||v>10000)) fail('配置数值必须为1至10000的整数');
+          if (['trialPick','trialUses'].includes(k) && (!Number.isInteger(v)||v<1||v>50)) fail('体验卡可选项目数和每项次数须为1至50的整数');
           if (k === 'appointmentTimes') {
             const slots = typeof v === 'string' ? v.split(',').map(x=>x.trim()) : [];
             if (!slots.length || slots.some(x=>!/^([01]\d|2[0-3]):[0-5]\d$/.test(x)) || new Set(slots).size !== slots.length) fail('预约时间须为不重复的24小时制 HH:MM，并用逗号分隔');
@@ -446,7 +449,7 @@ async function route(req, url, b) {
 
   if(p==='/subscriptions'){if(method==='GET')return {templates:notifications.options(db)};if(method==='POST'){let result;try{result=notifications.consent(db,u,b.acceptedTemplateIds)}catch(e){fail(e.message)}save();return result}fail('方法不允许',405)}
 
-  if (p === '/me') { if (method === 'PUT') { if (!text(b.name,40)) fail('请输入姓名'); u.name = text(b.name,40); u.gender = ['male','female'].includes(b.gender) ? b.gender : ''; save(); } return publicUser(u); }
+  if (p === '/me') { if (method === 'PUT') { if (!text(b.name,40)) fail('请输入姓名'); u.name = text(b.name,40); u.gender = ['male','female'].includes(b.gender) ? b.gender : ''; save(); } return { ...publicUser(u), vipLevel: vipLevel(u) }; }
   if (p === '/sign' && method === 'POST') {
     if (u.lastSign === day()) fail('今日已签到');
     const yesterday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() - 86400000));
@@ -532,7 +535,9 @@ async function route(req, url, b) {
     if (b.claimId) {
       claim = own('claims', b.claimId, u);
       if (claim.status==='completed') fail('该礼品已经使用过');
-      if(db.appointments.some(a=>a.claimId===claim.id&&a.productId===b.productId&&a.status!=='cancelled'))fail('该礼品已预约或已使用');
+      const giftBookings=db.appointments.filter(a=>a.claimId===claim.id&&a.productId===b.productId);
+      if(giftBookings.some(a=>a.status==='booked'))fail('该项目已有预约，完成后再约下一次');
+      if(giftBookings.filter(a=>a.status==='completed').length>=(claim.uses||1))fail('该项目次数已用完');
       if (!Array.isArray(claim.productIds) || !claim.productIds.includes(b.productId)) fail('礼品商品无效');
     } else {
       o = own('orders', b.orderId, u);
@@ -556,16 +561,17 @@ async function route(req, url, b) {
     save(); return a;
   }
   if (p === '/claims' && method === 'GET') {
-    return db.claims.filter(x => x.userId === u.id).map(c => ({ ...c, products: (c.productIds || []).map(pid => {const product=(c.products||[]).find(p=>p.id===pid)||db.products.find(p=>p.id===pid);if(!product)return null;const booking=db.appointments.find(a=>a.claimId===c.id&&a.productId===pid&&a.status!=='cancelled');return {...product,useStatus:c.status==='completed'||booking?.status==='completed'?'completed':booking?'booked':'available',bookingId:booking?.id||''}}).filter(Boolean) }));
+    return db.claims.filter(x => x.userId === u.id).map(c => ({ ...c, products: (c.productIds || []).map(pid => {const product=(c.products||[]).find(p=>p.id===pid)||db.products.find(p=>p.id===pid);if(!product)return null;const bookings=db.appointments.filter(a=>a.claimId===c.id&&a.productId===pid&&a.status!=='cancelled'),active=bookings.find(a=>a.status==='booked'),usesTotal=c.uses||1,usesCompleted=bookings.filter(a=>a.status==='completed').length,usesRemaining=c.status==='completed'?0:Math.max(0,usesTotal-usesCompleted);return {...product,useStatus:active?'booked':usesRemaining>0?'available':'completed',bookingId:(active||bookings[bookings.length-1])?.id||'',usesTotal,usesCompleted,usesRemaining}}).filter(Boolean) }));
   }
   if (p === '/claims' && method === 'POST') {
     if (b.type !== 'trial' && !u.invited) fail('贵宾卡仅限受邀新用户领取')
     const claimType = b.type === 'trial' ? 'trial' : 'vip';
     if (db.claims.some(x => x.userId === u.id && (x.type || 'trial') === claimType)) fail(claimType === 'vip' ? '您已领取过贵宾礼品' : '您已领取过体验礼品');
     const ids = Array.isArray(b.productIds) ? [...new Set(b.productIds)] : [];
-    if (ids.length !== db.config.maxGifts) fail('请选择领取' + db.config.maxGifts + '件商品');
+    const pick = claimType === 'trial' ? (db.config.trialPick ?? db.config.maxGifts) : db.config.maxGifts;
+    if (ids.length !== pick) fail('请选择领取' + pick + '件商品');
     const products = ids.map(key => db.products.find(p => p.id === key && p.enabled && p.status === 'published' && (claimType === 'trial' ? p.trial : p.gift) && p.stock > 0)); if (products.some(p => !p)) fail('礼品库存不足或已下架');
-    const snapshots=products.map(p=>JSON.parse(JSON.stringify(p)));products.forEach(p=>{if(p.skus?.length){const sku=p.skus.find(s=>s.enabled!==false&&s.stock>0);if(!sku)fail('礼品库存不足');sku.stock--;p.stock=p.skus.filter(s=>s.enabled!==false).reduce((n,s)=>n+s.stock,0)}else p.stock--}); const row = { id: id(), userId: u.id, type: claimType, productIds: ids, products:snapshots, createdAt: new Date().toISOString() }; db.claims.push(row); save(); return row;
+    const snapshots=products.map(p=>JSON.parse(JSON.stringify(p)));products.forEach(p=>{if(p.skus?.length){const sku=p.skus.find(s=>s.enabled!==false&&s.stock>0);if(!sku)fail('礼品库存不足');sku.stock--;p.stock=p.skus.filter(s=>s.enabled!==false).reduce((n,s)=>n+s.stock,0)}else p.stock--}); const row = { id: id(), userId: u.id, type: claimType, productIds: ids, products:snapshots, uses: claimType === 'trial' ? (db.config.trialUses || 1) : 1, createdAt: new Date().toISOString() }; db.claims.push(row); save(); return row;
   }
   if (p === '/redemptions' && method === 'POST') {
     const r = db.rewards.find(x => x.id === b.rewardId && x.enabled !== false); if (!r || r.stock < 1) fail('积分商品库存不足'); if ((u.points || 0) < r.points) fail('积分不足');

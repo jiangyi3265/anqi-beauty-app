@@ -659,3 +659,12 @@ uni-tabbar,.uni-tabbar-bottom{display:none!important}
 .xr-screen .xr-product-detail-image{display:block;width:calc(100% - 72rpx);margin-top:24rpx;border-radius:22rpx;overflow:hidden}
 
 .xr-screen .xr-customer-qr{display:block;width:320rpx;height:320rpx;margin:12rpx auto 20rpx}
+
+/* 1.1.35：我的套餐待核销、体验卡分组、贵宾卡未开通提示 */
+.xr-screen .xr-member-packages .xr-package-status{display:flex;flex-direction:column;gap:12rpx;padding:20rpx 0;border-top:1rpx solid #efe4e0}
+.xr-screen .xr-member-packages .xr-package-status:first-of-type{border-top:0}
+.xr-screen .xr-package-status-head{display:flex;flex-direction:column;gap:6rpx}
+.xr-screen .xr-package-items{display:flex;flex-wrap:wrap;gap:10rpx}
+.xr-screen .xr-trial-group{margin-top:12rpx}
+.xr-screen .xr-gift-locked{display:flex;align-items:center;gap:14rpx;flex-wrap:wrap}
+.xr-screen .xr-gift-locked>text{flex:1;min-width:0}
