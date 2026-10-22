@@ -600,7 +600,7 @@ uni-tabbar,.uni-tabbar-bottom{display:none!important}
 .xr-screen .xr-income-summary>view+view{border-left:1px solid #dfc3b3;padding-left:24rpx}
 .xr-screen .xr-income-summary>view>text+text{font-family:Georgia,serif;color:#8d3f3a;font-size:48rpx;font-variant-numeric:tabular-nums;line-height:1.25}
 .xr-screen .xr-income-note{padding:16rpx 25rpx 25rpx;background:#f6e1d8;border-radius:0 0 22rpx 22rpx;color:#8b7363;font-size:22rpx;line-height:1.8}
-.xr-screen .xr-income-note>text{color:#8d3f3a;white-space:nowrap}
+.xr-screen .xr-income-note>text,.xr-screen .xr-income-note>view>text{color:#8d3f3a;white-space:nowrap}
 .xr-screen .xr-income-records{background:#fffdfb;border-radius:22rpx;padding:0 25rpx;margin-top:25rpx;border:1px solid #f0e2d7}
 .xr-screen .xr-income-records>.xr-tabs{margin-top:0}
 .xr-screen .xr-income-records .xr-tabs>button{font-size:25rpx;padding-left:10rpx;padding-right:10rpx}

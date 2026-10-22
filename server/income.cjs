@@ -2,7 +2,7 @@ const crypto = require('node:crypto');
 const DAY = 86400000;
 const clone = x => JSON.parse(JSON.stringify(x));
 function fail(message, status = 400) { throw Object.assign(new Error(message), { status }); }
-function init(db) { db.incomeRules ||= []; db.incomePlans ||= []; db.earnings ||= []; db.poolSettlements ||= []; }
+function init(db) { db.incomeRules ||= []; db.incomePlans ||= []; db.earnings ||= []; db.poolSettlements ||= []; db.payouts ||= []; }
 function integer(v, min, max, label) { if (!Number.isInteger(v) || v < min || v > max) fail(`${label}须为${min}至${max}的整数`); return v; }
 function amount(v, max, label) { if (typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v > max || Math.abs(v * 100 - Math.round(v * 100)) > 0.000001) fail(label + '无效，最多保留两位小数'); return v; }
 function part(v, periodic) {
@@ -249,11 +249,55 @@ function refund(db,order,now=Date.now()) {
     db.earnings.push({...e,id:crypto.randomUUID(),accrualKey:'reverse:'+e.id,kind:'reversal',reversalOf:e.id,amountCents:-e.amountCents,amount:-e.amountCents/100,name:e.name+'（退款冲回）',createdAt:new Date(now).toISOString()});existing.add(e.id);
   }
 }
+const recordCents=e=>Number.isSafeInteger(e.amountCents)?e.amountCents:Math.round(Number(e.amount||0)*100);
 function summary(db,userId) {
   init(db);const records=db.earnings.filter(e=>e.userId===userId);
-  const sum=type=>records.filter(e=>type===undefined||e.type===type).reduce((n,e)=>n+(Number.isSafeInteger(e.amountCents)?e.amountCents:Math.round(Number(e.amount||0)*100)),0)/100;
-  const plans=db.incomePlans.filter(p=>p.userId===userId&&p.status==='active');
-  return {total:sum(),static:sum('static'),dynamic:sum('dynamic'),pending:plans.reduce((n,p)=>n+(p.periods-p.posted)*p.amountCents,0)/100};
+  const sum=type=>records.filter(e=>type===undefined||e.type===type).reduce((n,e)=>n+recordCents(e),0)/100;
+  const plans=db.incomePlans.filter(p=>p.userId===userId&&p.status==='active'),b=balanceOf(db,userId);
+  return {total:sum(),static:sum('static'),dynamic:sum('dynamic'),pending:plans.reduce((n,p)=>n+(p.periods-p.posted)*p.amountCents,0)/100,paidOut:b.paidOutCents/100,available:b.availableCents/100};
 }
+// 收益兑现：门店线下把收益付给会员后在后台登记，系统只记账、不转账。
+// 待兑现 = 累计净收益（入账 − 退款冲回）− 已兑现（未撤销）；登记不能超过待兑现，登记有误可撤销（保留原记录和原因）。
+const PAYOUT_METHODS={wechat:'微信转账',alipay:'支付宝',bank:'银行转账',cash:'现金',other:'其他'};
+function balanceOf(db,userId) {
+  init(db);
+  const earnedCents=db.earnings.filter(e=>e.userId===userId).reduce((n,e)=>n+recordCents(e),0);
+  const paidOutCents=db.payouts.filter(p=>p.userId===userId&&p.status==='paid').reduce((n,p)=>n+p.amountCents,0);
+  return {earnedCents,paidOutCents,availableCents:earnedCents-paidOutCents};
+}
+function payoutOverview(db) {
+  init(db);const earned=new Map(),paid=new Map(),last=new Map();
+  for(const e of db.earnings)earned.set(e.userId,(earned.get(e.userId)||0)+recordCents(e));
+  for(const p of db.payouts)if(p.status==='paid'){paid.set(p.userId,(paid.get(p.userId)||0)+p.amountCents);if(!last.has(p.userId)||p.createdAt>last.get(p.userId))last.set(p.userId,p.createdAt)}
+  const users=new Map(db.users.map(u=>[u.id,u]));
+  const members=db.users.filter(u=>!u.mergedInto&&(earned.has(u.id)||paid.has(u.id))).map(u=>{const e=earned.get(u.id)||0,p=paid.get(u.id)||0;return {userId:u.id,name:u.name||'',phone:u.phone||'',disabled:!!u.disabled,earned:e/100,paidOut:p/100,available:(e-p)/100,lastPayoutAt:last.get(u.id)||''}}).sort((a,b)=>b.available-a.available);
+  const total=k=>Math.round(members.reduce((n,m)=>n+Math.round(m[k]*100),0))/100;
+  return {members,payouts:db.payouts.slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))).map(p=>({...p,userName:users.get(p.userId)?.name||'',methodName:PAYOUT_METHODS[p.method]||p.method})),totals:{earned:total('earned'),paidOut:total('paidOut'),available:total('available')},methods:PAYOUT_METHODS};
+}
+function managePayout(db,body,actor,now=Date.now()) {
+  init(db);const at=new Date(now).toISOString(),note=v=>typeof v==='string'?v.trim().slice(0,200):'';
+  const log=(row,action)=>{db.audit ||= [];db.audit.unshift({id:crypto.randomUUID(),actor,resource:'payouts',target:row.id,method:'POST',action,userId:row.userId,amountCents:row.amountCents,createdAt:at})};
+  if(body.action==='payout') {
+    const requestId=typeof body.requestId==='string'&&/^[A-Za-z0-9-]{8,80}$/.test(body.requestId)?body.requestId:fail('登记编号无效，请刷新后重试');
+    const user=db.users.find(u=>u.id===body.userId&&!u.mergedInto);if(!user)fail('会员不存在',404);
+    const amountCents=Math.round(amount(body.amount,100000000,'兑现金额')*100);if(amountCents<=0)fail('兑现金额须大于0');
+    const previous=db.payouts.find(p=>p.requestId===requestId);
+    if(previous){if(previous.userId===user.id&&previous.amountCents===amountCents)return previous;fail('这笔登记已经提交过，请刷新后查看',409);}
+    if(!PAYOUT_METHODS[body.method])fail('请选择兑现方式');
+    if(body.confirmed!==true)fail('请确认已经线下付款给会员');
+    const {availableCents}=balanceOf(db,user.id);
+    if(amountCents>availableCents)fail('兑现金额不能超过待兑现 ¥'+(Math.max(0,availableCents)/100).toFixed(2));
+    const row={id:crypto.randomUUID(),userId:user.id,amountCents,amount:amountCents/100,method:body.method,note:note(body.note),requestId,status:'paid',actor,createdAt:at};
+    db.payouts.unshift(row);log(row,'payout');return row;
+  }
+  if(body.action==='cancel') {
+    const row=db.payouts.find(p=>p.id===body.id);if(!row)fail('兑现记录不存在',404);
+    if(row.status!=='paid')fail('这笔兑现已经撤销');
+    const reason=note(body.reason);if(!reason)fail('请填写撤销原因');
+    Object.assign(row,{status:'cancelled',cancelledAt:at,cancelledBy:actor,cancelReason:reason});log(row,'cancel');return row;
+  }
+  fail('不支持的兑现操作');
+}
+function customerPayouts(db,userId) {init(db);return db.payouts.filter(p=>p.userId===userId&&p.status==='paid').map(p=>({id:p.id,amount:p.amountCents/100,method:PAYOUT_METHODS[p.method]||'',note:p.note||'',createdAt:p.createdAt}));}
 function customerPlans(db,userId) {init(db);return db.incomePlans.filter(p=>p.userId===userId).map(p=>({id:p.id,type:p.type,name:p.productName,level:p.level,...(p.source?{source:p.source,tier:p.tier,percent:p.percent}:{}),amount:p.amountCents/100,periods:p.periods,posted:p.posted,status:p.status,nextAt:p.status==='active'?new Date(Date.parse(p.startAt)+p.posted*p.intervalDays*DAY).toISOString():'',paused:!!db.users.find(u=>u.id===userId)?.disabled}));}
-module.exports={init,manage,publicRules,snapshot,activate,settle,refund,summary,customerPlans,centsFor,referralRule,poolRule,settlePool,allocate,managePool};
+module.exports={init,manage,publicRules,snapshot,activate,settle,refund,summary,customerPlans,centsFor,referralRule,poolRule,settlePool,allocate,managePool,balanceOf,payoutOverview,managePayout,customerPayouts};

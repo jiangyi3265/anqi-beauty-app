@@ -69,7 +69,7 @@ function manage(db,method,key,b,actor) {
   if(typeof b.targetCode!=='string'||b.targetCode.trim().toUpperCase()!==target.id.slice(0,8).toUpperCase())fail('请输入客户本人小程序分享页的8位邀请码进行核对');
   if(target.id===u.id||!target.openid||target.disabled||target.source==='offline')fail('请选择有效的微信会员');
   // Never silently merge two established customers or their financial relationships.
-  const hasBusiness=['orders','appointments','claims','redemptions','earnings','incomePlans'].some(k=>(db[k]||[]).some(r=>r.userId===target.id));
+  const hasBusiness=['orders','appointments','claims','redemptions','earnings','incomePlans','payouts'].some(k=>(db[k]||[]).some(r=>r.userId===target.id));
   if(hasBusiness||target.inviterId||db.users.some(x=>x.inviterId===target.id)||(db.shares||[]).some(x=>x.userId===target.id||x.memberId===target.id))fail('目标微信会员已有业务或推荐关系，请直接在该会员名下补录，不能合并',409);
   if(target.phone&&target.phone!==u.phone)fail('双方手机号不一致，请先核实身份',409);
   for(const k of ['openid','wechatAppId','wechatLoginCodes','subscriptionCredits','unionid']){if(target[k]!==undefined)u[k]=target[k];delete target[k];}

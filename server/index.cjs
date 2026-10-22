@@ -341,6 +341,10 @@ async function route(req, url, b) {
     }
     if (collection === 'incomeRules') return income.manage(db,method,key,b,req.headers['x-anqi-actor']||'admin');
     if (collection === 'incomePlans') { if(method!=='GET')fail('方法不允许',405);income.settle(db);return db.incomePlans; }
+    if (collection === 'earnings' && key === 'payouts') {
+      income.settle(db);if(method==='GET')return income.payoutOverview(db);if(method!=='POST')fail('方法不允许',405);
+      const result=income.managePayout(db,b,req.headers['x-anqi-actor']||'admin');save();return result;
+    }
     if (collection === 'earnings' && method === 'GET') income.settle(db);
     if (['staff','shifts'].includes(collection)) {
       const result = staffScheduling.manage(db, collection, key, method, b);
@@ -577,7 +581,7 @@ async function route(req, url, b) {
     const r = db.rewards.find(x => x.id === b.rewardId && x.enabled !== false); if (!r || r.stock < 1) fail('积分商品库存不足'); if ((u.points || 0) < r.points) fail('积分不足');
     u.points -= r.points; r.stock--; const row = { id: id(), userId: u.id, name: r.name, points: r.points, createdAt: new Date().toISOString() }; db.redemptions.push(row); db.ledger.push({ ...row, id: id(), amount: -r.points, name: '兑换' + r.name }); save(); return row;
   }
-  if (p === '/earnings-summary' && method === 'GET') {income.settle(db);return {...income.summary(db,u.id),plans:income.customerPlans(db,u.id)};}
+  if (p === '/earnings-summary' && method === 'GET') {income.settle(db);return {...income.summary(db,u.id),plans:income.customerPlans(db,u.id),payouts:income.customerPayouts(db,u.id)};}
   if (p === '/earnings' && method === 'GET') income.settle(db);
   if (['/orders','/addresses','/appointments','/ledger','/redemptions','/shares','/earnings'].includes(p) && method === 'GET') return db[p.slice(1)].filter(x => x.userId === u.id);
   fail('接口不存在',404);
