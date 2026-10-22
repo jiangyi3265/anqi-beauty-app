@@ -8,6 +8,7 @@ const wechat = require('./wechat-login.cjs');
 const vipPackages = require('./vip-packages.cjs');
 const staffScheduling = require('./staff-scheduling.cjs');
 const income = require('./income.cjs');
+const legacyMembers = require('./legacy-members.cjs');
 const presentation = require('./presentation-config.cjs');
 const notifications = require('./notifications.cjs');
 const APP_VERSION = require('../package.json').version;
@@ -24,7 +25,7 @@ const paymentModeName = () => MOCK_PAYMENT ? 'mock' : WECHAT_PAY ? 'wechat' : 'o
 const HOST = process.env.HOST || '127.0.0.1';
 const sessions = new Map();
 let mysqlStore;
-const publicUser=u=>Object.fromEntries(Object.entries(u).filter(([k])=>!['openid','unionid','session_key','wechatAppId','wechatLoginCodes','password','salt','hash','subscriptionCredits'].includes(k)));
+const publicUser=u=>({...Object.fromEntries(Object.entries(u).filter(([k])=>!['openid','unionid','session_key','wechatAppId','wechatLoginCodes','password','salt','hash','subscriptionCredits','adminNote','offlineRequestId','offlineFingerprint'].includes(k))),wechatBound:!!u.openid});
 const internal=req=>process.env.INTERNAL_SECRET && req.headers['x-anqi-internal']===process.env.INTERNAL_SECRET;
 const attempts = new Map();
 const configDefaults = { name: '暨美丽', version: '1.0.9', appointmentCapacity: 1, appointmentTimes: '09:00,10:00,11:00,14:00,15:00,16:00,17:00,18:00', shortcutTrialLabel: '体验卡', shortcutVipLabel: '贵宾卡', shortcutShareLabel: '邀请码', homeImage: '/static/brand/hero-middle.jpg', heroTop: '/static/brand/hero-top-jimeili-v2.jpg', heroBottom: '/static/brand/hero-bottom-v2.jpg', storeDefaultImage: '/static/brand/store-cover-jimeili-v2.jpg', brandLogo: '/static/brand/logo-jimeili.png', welcome: '/static/assets/service-heading.jpg', hero: '/static/brand/jimeili-1-steamed-face.jpg', brand: '/static/brand/brand-jimeili.png', projectPromo: '/static/assets/service-heading.jpg', storePromo: '/static/brand/store-cover-jimeili-v2.jpg', customerQr: '', pointsBanner: '/static/assets/points-banner.jpg', serviceHeading: '/static/assets/service-heading.jpg', productHeading: '/static/assets/product-heading.jpg', signPoints: 100, maxGifts: 3, pointsRules: '每日可签到一次，签到获得100积分。积分可用于兑换后台已上架的积分商品。', subscriptionEnabled: true, messageReminderEnabled: true, marketingEnabled: true, agreement: '本协议说明您使用暨美丽小程序时的服务规则。您在注册、登录、下单、预约、领取礼品前，请核对商品、价格、库存、门店、数量和联系方式。您应遵守法律法规及平台规则，不得从事违法、欺诈、骚扰或损害他人权益的行为。订单、预约、礼品和售后以小程序及后台实时记录为准。如有疑问，请通过客服或门店渠道咨询。经营方会在法律允许范围内调整服务规则，并在小程序内公布调整内容。', privacy: '本隐私政策说明暨美丽在提供微信登录、商品购买、门店预约、订单履约、礼品领取和客服服务时的信息处理方式。我们仅在实现相应功能所必需的范围内处理微信身份标识、昵称头像、联系方式、收货地址、订单、预约和设备运行信息，不会向前端展示微信密钥或会话密钥。您可以通过个人中心、客服或门店渠道咨询、更正或删除相关信息。政策发生重大变化时，我们会在小程序内提示。正式上线前请经营方根据实际主体和业务完成审核。' };
@@ -60,7 +61,7 @@ function user(req) { const s = session(req); const u = db.users.find(u => u.id =
 function own(collection, key, u) { const item = db[collection].find(x => x.id === key && x.userId === u.id); if (!item) fail('记录不存在', 404); return item; }
 function expire() { let changed = false; for (const o of db.orders) if (o.status === 'pending' && !o.wechatPay?.prepayId && Date.now() - Date.parse(o.createdAt) >= 7200000) { o.status = 'cancelled'; restore(o); changed = true; } if (changed) save(); }
 function take(o) { const p = db.products.find(p => p.id === o.productId); if (!p) return; const sku=p.skus?.find(s => s.id===o.skuId); if (sku) sku.stock -= o.quantity; p.stock = p.skus?.length ? p.skus.filter(s=>s.enabled!==false).reduce((n,s)=>n+s.stock,0) : p.stock - o.quantity; }
-function restore(o) { const p = db.products.find(p => p.id === o.productId); if (!p) return; const sku=p.skus?.find(s => s.id===o.skuId); if (sku) sku.stock += o.quantity; p.stock = p.skus?.length ? p.skus.filter(s=>s.enabled!==false).reduce((n,s)=>n+s.stock,0) : p.stock + o.quantity; }
+function restore(o) { if(o.inventoryReserved===false)return; const p = db.products.find(p => p.id === o.productId); if (!p) return; const sku=p.skus?.find(s => s.id===o.skuId); if (sku) sku.stock += o.quantity; p.stock = p.skus?.length ? p.skus.filter(s=>s.enabled!==false).reduce((n,s)=>n+s.stock,0) : p.stock + o.quantity; }
 async function body(req) { let buffer = ''; for await (const b of req) { buffer += b; if (buffer.length > 8 * 1024 * 1024) fail('内容过大', 413); } if (!buffer) return {}; let parsed; try { parsed = JSON.parse(buffer); } catch { fail('请求内容格式不正确'); } if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) fail('请求内容必须为对象'); return parsed; }
 const editable = ['products', 'categories', 'stores', 'activities', 'alliances', 'rewards', 'homeModules'];
 function normalizeSku(value) {
@@ -329,6 +330,12 @@ async function route(req, url, b) {
     }
     if(collection==='notifications'){if(method!=='GET')fail('方法不允许',405);notifications.init(db);return db.notifications.slice().reverse()}
     if(collection==='notificationTemplates'){if(method!=='GET')fail('方法不允许',405);return notifications.templates()}
+    if (collection === 'legacyMembers') {
+      if(method==='GET')return {members:db.users.filter(u=>!u.mergedInto).map(u=>({...publicUser(u),adminNote:u.adminNote||''})),products:db.products.filter(p=>p.enabled&&p.status==='published'&&p.packagePlans?.length),stores:db.stores.filter(s=>s.enabled!==false),referral:income.referralRule(db),pool:income.poolRule(db)};
+      const result=legacyMembers.manage(db,method,key,b,req.headers['x-anqi-actor']||'admin');
+      if(result.revokeUserId){for(const [key,value]of sessions)if(value.userId===result.revokeUserId)sessions.delete(key);save();return publicUser(result.member);}
+      save();return result.productId?{id:result.id,number:result.number,package:result.package,total:result.total,incomeTreatment:result.incomeTreatment}:publicUser(result);
+    }
     if (collection === 'incomeRules') return income.manage(db,method,key,b,req.headers['x-anqi-actor']||'admin');
     if (collection === 'incomePlans') { if(method!=='GET')fail('方法不允许',405);income.settle(db);return db.incomePlans; }
     if (collection === 'earnings' && method === 'GET') income.settle(db);
@@ -350,7 +357,7 @@ async function route(req, url, b) {
       else fail('不支持的批量操作');
       selected.forEach(normalizeProduct); save(); return { ok: true, count: selected.length, products: selected };
     }
-    if (method === 'GET') return collection==='users'?db.users.map(publicUser):collection==='products'?db.products.map(normalizeProduct):collection==='homeModules'?db.homeModules.slice().sort((a,b)=>(a.sort||0)-(b.sort||0)):db[collection];
+    if (method === 'GET') return collection==='users'?db.users.filter(u=>!u.mergedInto).map(publicUser):collection==='products'?db.products.map(normalizeProduct):collection==='homeModules'?db.homeModules.slice().sort((a,b)=>(a.sort||0)-(b.sort||0)):db[collection];
     db.audit ||= []; if(method!=='GET')db.audit.unshift({id:id(),actor:req.headers['x-anqi-actor']||'admin',resource:collection,target:key||'',method,createdAt:new Date().toISOString()});
 
     if(method==='POST'&&collection==='products'&&key){
@@ -394,7 +401,7 @@ async function route(req, url, b) {
     }
     if (method === 'PUT' && collection === 'appointments') { const row = db.appointments.find(x => x.id === key); if (!row) fail('记录不存在',404); if (row.status !== 'booked' || !['completed','cancelled'].includes(b.status)) fail('只有已预约记录可完成或取消，已结束预约不可再次修改'); if(b.status==='completed'){const order=db.orders.find(x=>x.id===row.orderId);if(order?.package)vipPackages.complete(order,row);else if(order?.status==='ready')order.status='completed';row.completedAt=new Date().toISOString()}row.status = b.status; const incomeOrder=db.orders.find(o=>o.id===row.orderId);if(incomeOrder)income.activate(db,incomeOrder);income.settle(db);notifications.enqueue(db,row.status==='completed'?'appointmentCompleted':'appointmentCancelled',row);save(); return row; }
     if (method === 'PUT' && collection === 'orders') { const row = db.orders.find(x => x.id === key); if (!row) fail('记录不存在',404); if(row.package)fail('套餐请在预约管理中按项目逐次核销'); if (!['ready','shipping'].includes(row.status) || b.status !== 'completed') fail('只有已支付订单可核销完成'); row.status = 'completed'; row.completedAt=new Date().toISOString(); for (const a of db.appointments) if (a.orderId === row.id && a.status === 'booked') a.status = 'completed'; income.activate(db,row);income.settle(db);save(); return row; }
-    if (method === 'PUT' && collection === 'users') { const row = db.users.find(x => x.id === key); if (!row) fail('记录不存在',404); if(b.invited!==undefined)row.invited=b.invited===true;if(b.disabled!==undefined)row.disabled=b.disabled===true;save();return publicUser(row); }
+    if (method === 'PUT' && collection === 'users') { const row = db.users.find(x => x.id === key); if (!row) fail('记录不存在',404); if(b.invited!==undefined)row.invited=b.invited===true;if(b.disabled!==undefined)row.disabled=b.disabled===true;row.memberRevision=(row.memberRevision||0)+1;save();return publicUser(row); }
     fail('操作不支持',405);
   }
   if (['/activities','/alliances','/rewards'].includes(p) && method === 'GET') return db[p.slice(1)].filter(x => x.enabled !== false);

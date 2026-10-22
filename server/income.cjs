@@ -53,7 +53,7 @@ function nextPeriod(rule, start) {
 }
 // 截至期末是否持有：期末前已付款，且没有在期末前退款（期末后才退款的仍计入该期）
 function heldAt(o, end) {
-  return o.paymentStatus==='paid'&&Date.parse(o.paidAt)<end&&!['cancelled','pending'].includes(o.status)&&!(o.refundStatus==='refunded'&&!(Date.parse(o.refundAt)>=end));
+  return o.paymentStatus==='paid'&&(!o.offlineRequestId||Date.parse(o.createdAt)<end)&&Date.parse(o.paidAt)<end&&!['cancelled','pending'].includes(o.status)&&!(o.refundStatus==='refunded'&&!(Date.parse(o.refundAt)>=end));
 }
 function activityWindow(rule, periodStart) {
   if(!(rule.activityDays>0)||rule.cycle!=='daily')return null;
@@ -64,7 +64,7 @@ function poolHolders(db, end, since=-Infinity) {
   const weights=new Map();
   for(const o of db.orders||[]) {
     if(!o.product?.packagePlans?.length||!heldAt(o,end)||Date.parse(o.paidAt)<since)continue;
-    const user=db.users.find(u=>u.id===o.userId);if(!user||user.disabled)continue;
+    const user=db.users.find(u=>u.id===o.userId);if(!user||user.disabled||user.incomeAccess?.static===false)continue;
     const cents=Math.round(Number(o.total)*100);if(Number.isSafeInteger(cents)&&cents>0)weights.set(o.userId,(weights.get(o.userId)||0)+cents);
   }
   return weights;
@@ -160,16 +160,16 @@ function snapshot(db, order) {
     for(let i=0;!referral.enabled&&i<rule.dynamic.length;i++) {
       const next=db.users.find(u=>u.id===user?.inviterId);
       if(!next||seen.has(next.id))break;
-      seen.add(next.id);ancestors.push({id:next.id,enabled:!next.disabled});user=next;
+      seen.add(next.id);ancestors.push({id:next.id,enabled:!next.disabled&&next.incomeAccess?.dynamic!==false});user=next;
     }
-    const frozen=clone(rule);if(poolRule(db).enabled)frozen.static={...frozen.static,enabled:false};
+    const frozen=clone(rule);if(poolRule(db).enabled||buyer?.incomeAccess?.static===false)frozen.static={...frozen.static,enabled:false};
     Object.assign(s,{rule:frozen,ancestors});
   }
   if(referral.enabled) {
     const inviter=db.users.find(u=>u.id===buyer?.inviterId);
     const inScope=referral.scope==='all'||!!order.product?.packagePlans?.length;
     const fresh=!referral.durationDays||Date.now()-Date.parse(buyer?.createdAt)<=referral.durationDays*DAY;
-    if(inviter&&inviter.id!==order.userId&&!inviter.disabled&&inScope&&fresh)s.referral={rule:clone(referral),inviterId:inviter.id};
+    if(inviter&&inviter.id!==order.userId&&!inviter.disabled&&inviter.incomeAccess?.dynamic!==false&&inScope&&fresh)s.referral={rule:clone(referral),inviterId:inviter.id};
   }
   if(s.rule||s.referral)order.incomeSnapshot=s;
 }
