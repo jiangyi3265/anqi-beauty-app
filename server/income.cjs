@@ -15,8 +15,9 @@ function part(v, periodic) {
   return p;
 }
 // 推荐奖励：只奖励直接推荐人，被推荐人首单与后续订单分别按实付比例计算。
+// requireCard：推荐人本人须持有 VIP 套餐卡（被推荐人付款时已办卡、未退卡）才计奖励；办卡前的订单不补发。
 // 保存在 config 中（MySQL 模式随 anqi_lock 持久化）；默认关闭，由管理员启用。
-const REFERRAL_DEFAULTS = { revision:0, enabled:false, firstPercent:50, laterPercent:10, scope:'all', trigger:'paid', delayDays:0, durationDays:0, refundPolicy:'reverse' };
+const REFERRAL_DEFAULTS = { revision:0, enabled:false, firstPercent:50, laterPercent:10, scope:'all', trigger:'paid', delayDays:0, durationDays:0, refundPolicy:'reverse', requireCard:false };
 function referralRule(db) { return { ...REFERRAL_DEFAULTS, ...(db.config?.referralReward || {}) }; }
 function manageReferral(db, body, actor) {
   const previous = referralRule(db);
@@ -28,7 +29,8 @@ function manageReferral(db, body, actor) {
   if (!['paid','completed'].includes(body.trigger)) fail('请选择确认收款后或订单完成后');
   if (!['reverse','retain'].includes(body.refundPolicy)) fail('请选择退款收益处理方式');
   const row = { revision:previous.revision+1, enabled:body.enabled, firstPercent, laterPercent, scope:body.scope, trigger:body.trigger,
-    delayDays:integer(body.delayDays,0,3650,'入账等待天数'), durationDays:integer(body.durationDays,0,3650,'推荐有效天数'), refundPolicy:body.refundPolicy, updatedAt:new Date().toISOString() };
+    delayDays:integer(body.delayDays,0,3650,'入账等待天数'), durationDays:integer(body.durationDays,0,3650,'推荐有效天数'), refundPolicy:body.refundPolicy,
+    requireCard:typeof body.requireCard==='boolean'?body.requireCard:previous.requireCard, updatedAt:new Date().toISOString() };
   db.config ||= {}; db.config.referralReward = row;
   db.audit ||= [];db.audit.unshift({id:crypto.randomUUID(),actor,resource:'incomeRules',target:'referral',method:'PUT',revision:row.revision,createdAt:row.updatedAt});
   return row;
@@ -190,11 +192,15 @@ function isFirstOrder(db,order,rule) {
   const at=o=>{const t=Date.parse(o.paidAt||o.createdAt);return Number.isFinite(t)?t:0};
   return !db.orders.some(o=>o.id!==order.id&&o.userId===order.userId&&isPaid(o)&&inScope(o)&&(at(o)<at(order)||(at(o)===at(order)&&o.id<order.id)));
 }
+// 某时刻是否持有 VIP 套餐卡（与分红池同一口径：已付款、未在该时刻前退卡；补录的老卡从补录时起算）
+const holdsCard=(db,userId,at)=>(db.orders||[]).some(o=>o.userId===userId&&o.product?.packagePlans?.length&&heldAt(o,at));
 function addReferralPlan(db,order,referral) {
   const id=`${order.id}:referral:1`,rule=referral.rule;
   if(db.incomePlans.some(p=>p.id===id))return;
   const stamp=rule.trigger==='paid'?order.paidAt:order.completedAt;
   if(!stamp||(rule.trigger==='completed'&&order.status!=='completed'))return;
+  if(rule.requireCard&&!holdsCard(db,referral.inviterId,Date.parse(order.paidAt)+1)){referral.skipped='inviterNoCard';return;}
+  delete referral.skipped;
   const tier=isFirstOrder(db,order,rule)?'first':'later',percent=tier==='first'?rule.firstPercent:rule.laterPercent;
   const cents=centsFor({mode:'percent',value:percent},order.total);if(!cents)return;
   const start=Date.parse(stamp)+rule.delayDays*DAY;if(!Number.isFinite(start))fail('订单收益起算时间无效');

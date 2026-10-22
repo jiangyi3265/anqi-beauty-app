@@ -360,7 +360,7 @@ async function route(req, url, b) {
       else fail('不支持的批量操作');
       selected.forEach(normalizeProduct); save(); return { ok: true, count: selected.length, products: selected };
     }
-    if (method === 'GET') return collection==='users'?db.users.filter(u=>!u.mergedInto).map(publicUser):collection==='products'?db.products.map(normalizeProduct):collection==='homeModules'?db.homeModules.slice().sort((a,b)=>(a.sort||0)-(b.sort||0)):db[collection];
+    if (method === 'GET') return collection==='users'?db.users.filter(u=>!u.mergedInto).map(publicUser):collection==='products'?db.products.map(normalizeProduct):collection==='homeModules'?db.homeModules.slice().sort((a,b)=>(a.sort||0)-(b.sort||0)):collection==='orders'?db.orders.map(o=>o.incomeSnapshot?.referral?.skipped?{...o,referralNote:o.incomeSnapshot.referral.skipped}:o):db[collection];
     db.audit ||= []; if(method!=='GET')db.audit.unshift({id:id(),actor:req.headers['x-anqi-actor']||'admin',resource:collection,target:key||'',method,createdAt:new Date().toISOString()});
 
     if(method==='POST'&&collection==='products'&&key){
