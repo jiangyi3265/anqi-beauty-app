@@ -16,7 +16,7 @@ const referralPlans=db=>db.incomePlans.filter(p=>p.source==='referral');
 
 (function unit(){
   let db=fixture();
-  assert.deepEqual(income.manage(db,'GET',null).referral,{revision:0,enabled:false,firstPercent:50,laterPercent:10,scope:'all',trigger:'paid',delayDays:0,durationDays:0,refundPolicy:'reverse',requireCard:false});
+  assert.deepEqual(income.manage(db,'GET',null).referral,{revision:0,enabled:false,firstPercent:50,laterPercent:10,scope:'all',trigger:'paid',delayDays:0,durationDays:0,refundPolicy:'reverse',requireCard:false,beneficiary:'direct'});
   const off=order(db);income.activate(db,off);assert.equal(referralPlans(db).length,0);
   checks.push('defaults are 50% / 10%, all orders, unlimited, and disabled until an administrator enables them');
 

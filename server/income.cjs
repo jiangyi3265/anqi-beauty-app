@@ -16,8 +16,10 @@ function part(v, periodic) {
 }
 // 推荐奖励：只奖励直接推荐人，被推荐人首单与后续订单分别按实付比例计算。
 // requireCard：推荐人本人须持有 VIP 套餐卡（被推荐人付款时已办卡、未退卡）才计奖励；办卡前的订单不补发。
+// beneficiary：direct = 奖励给直接推荐人；top = 奖励给推荐链最上面的第一位推荐人（他下面每一层的消费都算他的，中间的人不拿）；
+// top 模式下第一位推荐人不符合条件（未办卡、停用、关闭动态资格）时谁都不给。比例按每位付款人自己的首单/后续计算。
 // 保存在 config 中（MySQL 模式随 anqi_lock 持久化）；默认关闭，由管理员启用。
-const REFERRAL_DEFAULTS = { revision:0, enabled:false, firstPercent:50, laterPercent:10, scope:'all', trigger:'paid', delayDays:0, durationDays:0, refundPolicy:'reverse', requireCard:false };
+const REFERRAL_DEFAULTS = { revision:0, enabled:false, firstPercent:50, laterPercent:10, scope:'all', trigger:'paid', delayDays:0, durationDays:0, refundPolicy:'reverse', requireCard:false, beneficiary:'direct' };
 function referralRule(db) { return { ...REFERRAL_DEFAULTS, ...(db.config?.referralReward || {}) }; }
 function manageReferral(db, body, actor) {
   const previous = referralRule(db);
@@ -30,7 +32,8 @@ function manageReferral(db, body, actor) {
   if (!['reverse','retain'].includes(body.refundPolicy)) fail('请选择退款收益处理方式');
   const row = { revision:previous.revision+1, enabled:body.enabled, firstPercent, laterPercent, scope:body.scope, trigger:body.trigger,
     delayDays:integer(body.delayDays,0,3650,'入账等待天数'), durationDays:integer(body.durationDays,0,3650,'推荐有效天数'), refundPolicy:body.refundPolicy,
-    requireCard:typeof body.requireCard==='boolean'?body.requireCard:previous.requireCard, updatedAt:new Date().toISOString() };
+    requireCard:typeof body.requireCard==='boolean'?body.requireCard:previous.requireCard,
+    beneficiary:body.beneficiary===undefined?previous.beneficiary:['direct','top'].includes(body.beneficiary)?body.beneficiary:fail('请选择推荐奖励给谁'), updatedAt:new Date().toISOString() };
   db.config ||= {}; db.config.referralReward = row;
   db.audit ||= [];db.audit.unshift({id:crypto.randomUUID(),actor,resource:'incomeRules',target:'referral',method:'PUT',revision:row.revision,createdAt:row.updatedAt});
   return row;
@@ -152,6 +155,19 @@ function manage(db, method, productId, body, actor) {
   return row;
 }
 function publicRules(db) { init(db);if(poolRule(db).enabled)return [];return db.incomeRules.filter(r=>r.static.enabled).map(r=>({productId:r.productId,revision:r.revision,static:r.static,refundPolicy:r.refundPolicy})); }
+// 推荐链最上面的第一位推荐人：沿推荐人一路往上，直到没有推荐人为止；depth = 付款人在他下面第几层。链条成环时视为无效
+function topReferrer(db,buyer) {
+  const byId=id=>db.users.find(u=>u.id===id),seen=new Set([buyer?.id]);
+  let cur=buyer?.inviterId&&byId(buyer.inviterId),depth=1;
+  while(cur) {
+    if(seen.has(cur.id))return null;
+    seen.add(cur.id);
+    const next=cur.inviterId&&byId(cur.inviterId);
+    if(!next)return {user:cur,depth};
+    cur=next;depth++;
+  }
+  return null;
+}
 function snapshot(db, order) {
   init(db);
   const rule=db.incomeRules.find(r=>r.productId===order.productId),referral=referralRule(db),buyer=db.users.find(u=>u.id===order.userId),s={};
@@ -168,10 +184,10 @@ function snapshot(db, order) {
     Object.assign(s,{rule:frozen,ancestors});
   }
   if(referral.enabled) {
-    const inviter=db.users.find(u=>u.id===buyer?.inviterId);
+    const chain=referral.beneficiary==='top'?topReferrer(db,buyer):buyer?.inviterId?{user:db.users.find(u=>u.id===buyer.inviterId),depth:1}:null,inviter=chain?.user;
     const inScope=referral.scope==='all'||!!order.product?.packagePlans?.length;
     const fresh=!referral.durationDays||Date.now()-Date.parse(buyer?.createdAt)<=referral.durationDays*DAY;
-    if(inviter&&inviter.id!==order.userId&&!inviter.disabled&&inviter.incomeAccess?.dynamic!==false&&inScope&&fresh)s.referral={rule:clone(referral),inviterId:inviter.id};
+    if(inviter&&inviter.id!==order.userId&&!inviter.disabled&&inviter.incomeAccess?.dynamic!==false&&inScope&&fresh)s.referral={rule:clone(referral),inviterId:inviter.id,depth:chain.depth};
   }
   if(s.rule||s.referral)order.incomeSnapshot=s;
 }
@@ -204,7 +220,7 @@ function addReferralPlan(db,order,referral) {
   const tier=isFirstOrder(db,order,rule)?'first':'later',percent=tier==='first'?rule.firstPercent:rule.laterPercent;
   const cents=centsFor({mode:'percent',value:percent},order.total);if(!cents)return;
   const start=Date.parse(stamp)+rule.delayDays*DAY;if(!Number.isFinite(start))fail('订单收益起算时间无效');
-  db.incomePlans.push({id,orderId:order.id,userId:referral.inviterId,type:'dynamic',level:1,source:'referral',tier,percent,productName:order.product.name,revision:rule.revision,amountCents:cents,periods:1,intervalDays:1,startAt:new Date(start).toISOString(),posted:0,status:'active',refundPolicy:rule.refundPolicy,createdAt:new Date().toISOString()});
+  db.incomePlans.push({id,orderId:order.id,userId:referral.inviterId,type:'dynamic',level:referral.depth||1,source:'referral',tier,percent,productName:order.product.name,revision:rule.revision,amountCents:cents,periods:1,intervalDays:1,startAt:new Date(start).toISOString(),posted:0,status:'active',refundPolicy:rule.refundPolicy,createdAt:new Date().toISOString()});
 }
 function activate(db,order) {
   init(db);const s=order.incomeSnapshot;
