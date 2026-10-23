@@ -335,7 +335,7 @@ async function route(req, url, b) {
     if(collection==='notifications'){if(method!=='GET')fail('方法不允许',405);notifications.init(db);return db.notifications.slice().reverse()}
     if(collection==='notificationTemplates'){if(method!=='GET')fail('方法不允许',405);return notifications.templates()}
     if (collection === 'legacyMembers') {
-      if(method==='GET')return {members:db.users.filter(u=>!u.mergedInto).map(u=>({...publicUser(u),adminNote:u.adminNote||''})),products:db.products.filter(p=>p.enabled&&p.status==='published'&&p.packagePlans?.length),stores:db.stores.filter(s=>s.enabled!==false),referral:income.referralRule(db),pool:income.poolRule(db)};
+      if(method==='GET')return {members:db.users.filter(u=>!u.mergedInto).map(u=>({...publicUser(u),adminNote:u.adminNote||'',superVip:!!vipLevel(u)})),products:db.products.filter(p=>p.enabled&&p.status==='published'&&p.packagePlans?.length),stores:db.stores.filter(s=>s.enabled!==false),referral:income.referralRule(db),pool:income.poolRule(db)};
       const result=legacyMembers.manage(db,method,key,b,req.headers['x-anqi-actor']||'admin');
       if(result.revokeUserId){for(const [key,value]of sessions)if(value.userId===result.revokeUserId)sessions.delete(key);save();return publicUser(result.member);}
       save();return result.productId?{id:result.id,number:result.number,package:result.package,total:result.total,incomeTreatment:result.incomeTreatment}:publicUser(result);
