@@ -1,4 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{spawn}=require('node:child_process'),crypto=require('node:crypto');
+const {makeSuperVip}=require('./test-super-vip.cjs');
 const root=process.cwd(),out=path.resolve('verification/current-audit'),file=path.join(out,'share-address.json'),port=3142,base=`http://127.0.0.1:${port}/api`;
 const env={...process.env,HOST:'127.0.0.1',PORT:String(port),DATA_FILE:file,DB_NAME:'',DEMO_MODE:'true',WECHAT_MOCK:'true',WECHAT_APPID:'wxmocktest00000000',ADMIN_PASSWORD:crypto.randomBytes(24).toString('hex'),INTERNAL_SECRET:crypto.randomBytes(24).toString('hex'),NODE_ENV:'test',PAYMENT_MODE:'off'};
 try{fs.rmSync(file,{force:true});fs.rmSync(file+'.tmp',{force:true})}catch{}
@@ -7,6 +8,9 @@ async function req(p,m='GET',body,token){const r=await fetch(base+p,{method:m,he
 (async()=>{child=spawn(process.execPath,['server/index.cjs'],{cwd:root,env,stdio:['ignore',log,log]});for(let i=0;i<80;i++){try{if((await fetch(base+'/health')).ok)break}catch{}await new Promise(r=>setTimeout(r,100))}
  const login=await req('/auth/wechat','POST',{code:'share-'+Date.now()});assert.equal(login.status,200);const token=login.data.token;
  const empty=await req('/addresses','GET',undefined,token);assert.equal(empty.status,200);assert.deepEqual(empty.data,[]);
+ const locked=await req('/share-code','GET',undefined,token);assert.equal(locked.status,200);assert.equal(locked.data.locked,true);assert.equal(locked.data.image,undefined);
+ const admin=(r,m='GET',b)=>fetch(base+'/admin/'+r,{method:m,headers:{'content-type':'application/json','x-anqi-internal':env.INTERNAL_SECRET},body:b===undefined?undefined:JSON.stringify(b)}).then(x=>x.json());
+ await makeSuperVip(admin,login.data.user.id,'share');
  const share=await req('/share-code','GET',undefined,token);assert.equal(share.status,200);assert.equal(share.data.mode,'web');assert.match(share.data.image,/\?v=/);const image=await fetch('http://127.0.0.1:'+port+share.data.image.replace(/\?v=.*/,''));assert.equal(image.status,200);assert.match(image.headers.get('content-type')||'',/image\/png/);
  const bootstrap=await req('/bootstrap');const service=bootstrap.data.products.find(x=>x.kind==='service'&&x.enabled!==false);const store=bootstrap.data.stores.find(x=>x.enabled!==false);const order=await req('/orders','POST',{productId:service.id,storeId:store.id,spec:'single',quantity:1},token);assert.equal(order.status,200);assert.equal(order.data.address,null);
  fs.writeFileSync(path.join(out,'share-address-result.json'),JSON.stringify({ok:true,shareMode:share.data.mode,addressCount:empty.data.length,serviceOrderAddress:order.data.address},null,2));console.log(JSON.stringify({ok:true,shareMode:share.data.mode,addressCount:empty.data.length,serviceOrderAddress:order.data.address}));

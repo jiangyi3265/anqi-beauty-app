@@ -3,6 +3,7 @@
 // 后台收款前关单、原路退款及退款回调、套餐已核销禁止退款、超时对账关单、重启持久化、配置不全时停用、平台证书模式。
 // MySQL：WECHAT_PAY_TEST_DB_NAME=anqi_audit_xxx（需已建库）。
 const assert = require('node:assert/strict');
+const {makeSuperVip}=require('./test-super-vip.cjs');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -65,6 +66,7 @@ const verifyPaySign = p => crypto.createVerify('RSA-SHA256').update(`${p.appId}\
   const ref = (await admin('incomeRules')).referral;
   await admin('incomeRules/referral', 'PUT', { ...ref, enabled: true });
   const inviter = await login('wxpay-inviter'), buyerCode = 'wxpay-buyer-' + Date.now();
+  await makeSuperVip(admin, inviter.user.id, 'wxpay');
   const buyer = await req('/auth/wechat', 'POST', { code: buyerCode, invite: inviter.user.id.slice(0, 8) });
   checks.push('业务服务和小程序启动参数均显示已开通微信支付');
 

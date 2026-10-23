@@ -66,7 +66,7 @@ function manage(db,method,key,b,actor) {
   checkRevision(u,b);text(b.note,'核实说明',500);if(b.confirmed!==true)fail('请先核对客户本人的会员编号');
   if(u.source!=='offline'||u.openid)fail('仅未绑定的线下档案可关联微信');
   const target=active(db,b.targetId);
-  if(typeof b.targetCode!=='string'||b.targetCode.trim().toUpperCase()!==target.id.slice(0,8).toUpperCase())fail('请输入客户本人小程序分享页的8位邀请码进行核对');
+  if(typeof b.targetCode!=='string'||b.targetCode.trim().toUpperCase()!==target.id.slice(0,8).toUpperCase())fail('请输入客户本人小程序邀请码页面上的8位会员编号进行核对');
   if(target.id===u.id||!target.openid||target.disabled||target.source==='offline')fail('请选择有效的微信会员');
   // Never silently merge two established customers or their financial relationships.
   const hasBusiness=['orders','appointments','claims','redemptions','earnings','incomePlans','payouts'].some(k=>(db[k]||[]).some(r=>r.userId===target.id));

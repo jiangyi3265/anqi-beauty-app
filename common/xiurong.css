@@ -668,3 +668,7 @@ uni-tabbar,.uni-tabbar-bottom{display:none!important}
 .xr-screen .xr-trial-group{margin-top:12rpx}
 .xr-screen .xr-gift-locked{display:flex;align-items:center;gap:14rpx;flex-wrap:wrap}
 .xr-screen .xr-gift-locked>text{flex:1;min-width:0}
+
+/* 1.1.38：非超级VIP会员的邀请页 */
+.xr-screen .xr-share-locked{display:flex;flex-direction:column;align-items:center;text-align:center;gap:16rpx;padding:36rpx 28rpx}
+.xr-screen .xr-share-locked .xr-caption{line-height:1.7}

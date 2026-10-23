@@ -25,7 +25,7 @@ const paymentModeName = () => MOCK_PAYMENT ? 'mock' : WECHAT_PAY ? 'wechat' : 'o
 const HOST = process.env.HOST || '127.0.0.1';
 const sessions = new Map();
 let mysqlStore;
-// 会员等级：本人已付款、未退款、未取消的 VIP 套餐中价格最高的一档；没有则为空
+// 会员等级：本人已付款、未退款、未取消的 VIP 套餐中价格最高的一档；没有则为空。有等级即“超级VIP会员”：才有专属二维码、才能推荐别人
 function vipLevel(u){const held=db.orders.filter(o=>o.userId===u.id&&o.product?.packagePlans?.length&&o.paymentStatus==='paid'&&o.refundStatus!=='refunded'&&!['cancelled','pending','aftersale'].includes(o.status));if(!held.length)return null;const top=held.reduce((a,o)=>Number(o.product.memberPrice??o.product.price)>Number(a.product.memberPrice??a.product.price)?o:a);const name=String(top.product.name||'VIP').replace(/套餐$/,'');return {name:name.endsWith('会员')?name:name+'会员',productId:top.productId,orderId:top.id}}
 const publicUser=u=>({...Object.fromEntries(Object.entries(u).filter(([k])=>!['openid','unionid','session_key','wechatAppId','wechatLoginCodes','password','salt','hash','subscriptionCredits','adminNote','offlineRequestId','offlineFingerprint'].includes(k))),wechatBound:!!u.openid});
 const internal=req=>process.env.INTERNAL_SECRET && req.headers['x-anqi-internal']===process.env.INTERNAL_SECRET;
@@ -267,8 +267,9 @@ async function route(req, url, b) {
     if(!u){
       u={id:id(),openid:identity.openid,wechatAppId:identity.appid,name:'微信用户',phone:'',avatar:'/static/assets/avatar.png',gender:'',invited:false,points:0,streak:0,lastSign:'',lastSignAt:'',createdAt:new Date().toISOString()};
       if(typeof b.invite==='string'&&/^[a-fA-F0-9]{8}$/.test(b.invite)){
-        const inviter=db.users.find(x=>!x.disabled&&x.id.slice(0,8).toUpperCase()===b.invite.toUpperCase());
-        if(inviter){u.invited=true;u.inviterId=inviter.id;db.shares.push({id:id(),userId:inviter.id,name:u.name,memberId:u.id,createdAt:u.createdAt})}
+        // 只有超级VIP会员（持有未退款的 VIP 套餐卡）的码才建立推荐关系；其他人的旧链接或码不算
+        const inviter=db.users.find(x=>!x.disabled&&!x.mergedInto&&x.id.slice(0,8).toUpperCase()===b.invite.toUpperCase());
+        if(inviter&&vipLevel(inviter)){u.invited=true;u.inviterId=inviter.id;db.shares.push({id:id(),userId:inviter.id,name:u.name,memberId:u.id,createdAt:u.createdAt})}
       }
       db.users.push(u);
     }
@@ -424,6 +425,8 @@ async function route(req, url, b) {
     const dir=path.join(ROOT,'static/uploads');fs.mkdirSync(dir,{recursive:true});const filename=id()+'.'+(match[1]==='jpeg'?'jpg':match[1]);fs.writeFileSync(path.join(dir,filename),bytes);u.avatar='/static/uploads/'+filename;save();return {avatar:u.avatar};
   }
   if (p === '/share-code' && method === 'GET') {
+    // 只有超级VIP会员才有专属二维码；其他会员只看到自己的会员编号（门店核对身份用）
+    if(!vipLevel(u))return {locked:true,memberCode:u.id.slice(0,8).toUpperCase()};
     const code=u.id.slice(0,8).toUpperCase();const dir=path.join(ROOT,'static/uploads');fs.mkdirSync(dir,{recursive:true});
     const filename='share-'+u.id+'.png';const dest=path.join(dir,filename);
     let mode='web';

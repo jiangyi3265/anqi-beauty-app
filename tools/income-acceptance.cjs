@@ -1,4 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),net=require('node:net');
+const {makeSuperVip}=require('./test-super-vip.cjs');
 const {spawn}=require('node:child_process'),{once}=require('node:events'),income=require('../server/income.cjs'),seed=require('../server/seed.cjs');
 const checks=[],DAY=86400000;
 const part=(overrides={})=>({enabled:true,mode:'fixed',value:10,trigger:'paid',delayDays:0,...overrides});
@@ -27,7 +28,8 @@ async function stop(){if(child&&child.exitCode===null){const done=once(child,'ex
  if(process.env.INCOME_TEST_DB_NAME&&!/^anqi_audit_[a-zA-Z0-9_]+$/.test(process.env.INCOME_TEST_DB_NAME))throw Error('Use a dedicated anqi_audit_ database');
  fs.writeFileSync(file,JSON.stringify(seed()));await start();const boot=await req('/bootstrap');const products=boot.products.filter(p=>p.packagePlans?.length);assert.equal(products.length,6);
  await req('/admin/incomeRules','GET',undefined,null,401);await req('/earnings-summary','GET',undefined,null,401);
- const parent=await req('/auth/wechat','POST',{code:'income-parent-'+Date.now()}),buyer=await req('/auth/wechat','POST',{code:'income-buyer-'+Date.now(),invite:parent.user.id.slice(0,8)});
+ const parent=await req('/auth/wechat','POST',{code:'income-parent-'+Date.now()});await makeSuperVip(admin,parent.user.id,'income');
+ const buyer=await req('/auth/wechat','POST',{code:'income-buyer-'+Date.now(),invite:parent.user.id.slice(0,8)});
  function selection(p){const plan=p.packagePlans[0];return {planId:plan.id,groups:Object.fromEntries(plan.groups.map(g=>[g.id,g.services.slice(0,g.pick).map(s=>({serviceId:s.id,...(s.options?.length?{option:s.options[0]}:{})}))]))}}
  const p=products[0];const body={productId:p.id,quantity:1,spec:'single',storeId:boot.stores[0].id,packageSelection:selection(p)};
  const old=await req('/orders','POST',body,buyer.token);

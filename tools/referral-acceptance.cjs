@@ -1,5 +1,6 @@
 // 推荐奖励验收：直接推荐人，被推荐人首单与后续订单按不同比例奖励。
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),net=require('node:net');
+const {makeSuperVip}=require('./test-super-vip.cjs');
 const {spawn}=require('node:child_process'),{once}=require('node:events'),income=require('../server/income.cjs'),seed=require('../server/seed.cjs');
 const checks=[],DAY=86400000;
 const referral=(overrides={})=>({revision:0,enabled:true,firstPercent:50,laterPercent:10,scope:'all',trigger:'paid',delayDays:0,durationDays:0,refundPolicy:'reverse',...overrides});
@@ -90,8 +91,8 @@ async function stop(){if(child&&child.exitCode===null){const done=once(child,'ex
   const rules=await admin('incomeRules');assert.equal(rules.referral.enabled,false);assert.equal(rules.referral.firstPercent,50);
   await admin('incomeRules/referral','PUT',referral({revision:5}),409);
   await admin('incomeRules/referral','PUT',referral());
-  const grand=await req('/auth/wechat','POST',{code:'ref-grand-'+Date.now()});
-  const parent=await req('/auth/wechat','POST',{code:'ref-parent-'+Date.now(),invite:grand.user.id.slice(0,8)});
+  const grand=await req('/auth/wechat','POST',{code:'ref-grand-'+Date.now()});await makeSuperVip(admin,grand.user.id,'grand');
+  const parent=await req('/auth/wechat','POST',{code:'ref-parent-'+Date.now(),invite:grand.user.id.slice(0,8)});await makeSuperVip(admin,parent.user.id,'parent');
   const buyer=await req('/auth/wechat','POST',{code:'ref-buyer-'+Date.now(),invite:parent.user.id.slice(0,8).toUpperCase()});
   const plan=vip.packagePlans[0],selection={planId:plan.id,groups:Object.fromEntries(plan.groups.map(g=>[g.id,g.services.slice(0,g.pick).map(s=>({serviceId:s.id,...(s.options?.length?{option:s.options[0]}:{})}))]))};
   const o1=await req('/orders','POST',{productId:kit.id,quantity:1,spec:'single',storeId:store},buyer.token);

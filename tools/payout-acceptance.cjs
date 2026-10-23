@@ -1,5 +1,6 @@
 // 收益兑现验收：门店线下付款后登记，只记账不转账；待兑现 = 累计净收益 − 已兑现，登记不超额、不重复，可撤销留痕。
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),net=require('node:net');
+const {makeSuperVip}=require('./test-super-vip.cjs');
 const {spawn}=require('node:child_process'),{once}=require('node:events'),income=require('../server/income.cjs'),seed=require('../server/seed.cjs');
 const checks=[];
 const rid=()=>crypto.randomUUID();
@@ -42,7 +43,8 @@ async function stop(){if(child&&child.exitCode===null){const done=once(child,'ex
   const data=seed();delete data.payouts;fs.writeFileSync(file,JSON.stringify(data));await start();
   const boot=await req('/bootstrap'),store=boot.stores[0].id,kit=boot.products.find(p=>p.id==='jimeili-rejuvenation-set');
   const rules=await admin('incomeRules');await admin('incomeRules/referral','PUT',{...rules.referral,enabled:true});
-  const me=await req('/auth/wechat','POST',{code:'payout-me-'+Date.now()}),friend=await req('/auth/wechat','POST',{code:'payout-friend-'+Date.now(),invite:me.user.id.slice(0,8)}),other=await req('/auth/wechat','POST',{code:'payout-other-'+Date.now()});
+  const me=await req('/auth/wechat','POST',{code:'payout-me-'+Date.now()});await makeSuperVip(admin,me.user.id,'payout');
+  const friend=await req('/auth/wechat','POST',{code:'payout-friend-'+Date.now(),invite:me.user.id.slice(0,8)}),other=await req('/auth/wechat','POST',{code:'payout-other-'+Date.now()});
   const o=await req('/orders','POST',{productId:kit.id,quantity:1,spec:'single',storeId:store},friend.token);await admin('orders/'+o.id,'POST',{action:'confirmPayment',note:'门店收款'});
   const earned=Math.round(o.total*50)/100;let s=await req('/earnings-summary','GET',undefined,me.token);
   assert.deepEqual([s.total,s.paidOut,s.available,s.payouts.length],[earned,0,earned,0]);

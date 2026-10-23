@@ -1,5 +1,6 @@
 // 推荐人须办卡验收：开启后，被推荐人付款那一刻推荐人本人已持有 VIP 套餐卡才计推荐奖励；办卡前的订单不补发。
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),net=require('node:net');
+const {makeSuperVip}=require('./test-super-vip.cjs');
 const {spawn}=require('node:child_process'),{once}=require('node:events'),income=require('../server/income.cjs'),seed=require('../server/seed.cjs');
 const checks=[],T0=Date.parse('2026-11-01T02:00:00Z'),MIN=60000;
 const referral=(o={})=>({revision:0,enabled:true,firstPercent:50,laterPercent:10,scope:'all',trigger:'paid',delayDays:0,durationDays:0,refundPolicy:'reverse',...o});
@@ -72,20 +73,22 @@ async function stop(){if(child&&child.exitCode===null){const done=once(child,'ex
   await admin('incomeRules/referral','PUT',referral({requireCard:true}));
   assert.equal((await req('/bootstrap')).config.referralReward.requireCard,true);
   const me=await req('/auth/wechat','POST',{code:'card-me-'+Date.now()});
+  await makeSuperVip(admin,me.user.id,'card1');
   const friend=await req('/auth/wechat','POST',{code:'card-friend-'+Date.now(),invite:me.user.id.slice(0,8)});
+  const card1=(await admin('orders')).find(o=>o.userId===me.user.id&&o.product?.packagePlans?.length);await admin('orders/'+card1.id,'POST',{action:'refund',note:'推荐人退卡'});
+  assert.equal((await req('/me','GET',undefined,me.token)).vipLevel,null);
   const o1=await req('/orders','POST',{productId:kit.id,quantity:1,spec:'single',storeId:store},friend.token);
-  await admin('orders/'+o1.id,'POST',{action:'confirmPayment',note:'推荐人未办卡'});
+  await admin('orders/'+o1.id,'POST',{action:'confirmPayment',note:'推荐人已退卡'});
   assert.equal((await req('/earnings-summary','GET',undefined,me.token)).dynamic,0);
   assert.equal((await admin('orders')).find(o=>o.id===o1.id).referralNote,'inviterNoCard');
-  checks.push('API：推荐人未办卡时，好友付款 '+o1.total+' 元，推荐人收益 0，订单记录“推荐人未办卡”');
-  const plan=gold.packagePlans[0],sel={planId:plan.id,groups:Object.fromEntries(plan.groups.map(g=>[g.id,g.services.slice(0,g.pick).map(s=>({serviceId:s.id,...(s.options?.length?{option:s.options[0]}:{})}))]))};
-  await admin('legacyMembers/'+me.user.id,'POST',{action:'grant',requestId:'card-'+Date.now(),revision:0,confirmed:true,note:'门店开卡',reference:'CARD-'+Date.now(),productId:gold.id,storeId:store,total:gold.memberPrice??gold.price,paidAt:new Date(Date.now()-60000).toISOString(),incomeTreatment:'historical',packageSelection:sel});
+  checks.push('API：推荐人（超级VIP）退卡后，好友付款 '+o1.total+' 元，推荐人收益 0，订单记录“推荐人未办卡”');
+  await makeSuperVip(admin,me.user.id,'card2');
   assert.ok((await req('/me','GET',undefined,me.token)).vipLevel);
   const o2=await req('/orders','POST',{productId:kit.id,quantity:1,spec:'single',storeId:store},friend.token);
   await admin('orders/'+o2.id,'POST',{action:'confirmPayment',note:'推荐人已办卡'});
   const ps=await req('/earnings-summary','GET',undefined,me.token);
   assert.equal(ps.dynamic,Math.round(o2.total*10)/100);
-  checks.push('API：门店给推荐人开卡后，好友下一单 '+o2.total+' 元按后续 10% 计 '+ps.dynamic+' 元；之前那单不补发');
+  checks.push('API：推荐人重新办卡后，好友下一单 '+o2.total+' 元按后续 10% 计 '+ps.dynamic+' 元；退卡期间那单不补发');
   await stop();await start();
   assert.equal((await admin('incomeRules')).referral.requireCard,true);
   checks.push('重启后“推荐人须办卡”设置仍在');
