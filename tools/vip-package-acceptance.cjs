@@ -63,7 +63,16 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
   const data = await request('/bootstrap');
   const products = data.products.filter(p => p.packagePlans?.length);
   assert.deepEqual(products.map(p => p.price), [6980,13800,26800,49800,99800,199800]);
-  assert.deepEqual(products.map(p => p.packagePlans.length), [2,2,2,1,1,1]);
+  assert.deepEqual(products.map(p => p.packagePlans.length), [1,1,1,1,1,1]);
+  assert.deepEqual(products.map(p => p.packagePlans[0].services.length), [6,6,7,11,13,13]);
+  assert.deepEqual(products.map(p => p.packagePlans[0].services.reduce((n,s)=>n+s.total,0)+2), [22,33,34,38,80,98]);
+  for (const p of products) {
+    const [glow,star]=p.packagePlans[0].groups;
+    assert.deepEqual([glow.services.length,glow.pick,star.services.length,star.pick],[5,1,3,1]);
+    assert.ok(glow.services.every(s=>s.total===1&&s.referencePrice===3980));
+    assert.ok(star.services.every(s=>s.total===1&&s.referencePrice===1980));
+    assert.equal(star.services[0].name,'中医养生特调');
+  }
   assert.equal(data.products.filter(p=>!p.trialOnly).at(-1).id,'jimeili-rejuvenation-set');
   const alice = await request('/auth/wechat','POST',{code:'vip-alice'});
   const bob = await request('/auth/wechat','POST',{code:'vip-bob'});
@@ -82,8 +91,8 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
   await request('/orders','POST',invalid,alice.token,400);
   invalid.packageSelection.groups[groupId]=[null];
   await request('/orders','POST',invalid,alice.token,400);
-  const duplicated=body(products[2],products[2].packagePlans[1]);
-  const multi=products[2].packagePlans[1].groups.find(g=>g.pick===2);
+  const duplicated=body(products[2]);
+  const multi=products[2].packagePlans[0].groups[0];
   duplicated.packageSelection.groups[multi.id]=[duplicated.packageSelection.groups[multi.id][0],duplicated.packageSelection.groups[multi.id][0]];
   await request('/orders','POST',duplicated,alice.token,400);
   await admin('/products/'+gold.id,'PUT',{packagePlans:[null]},400);
@@ -97,7 +106,7 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
     assert.ok(order.package.services.every(s=>s.used===0&&s.total>=1));
     orders.push(order);
   }
-  const order=orders[0], entitlement=order.package.services[0];
+  const order=orders[0], entitlement=order.package.services.find(s=>s.total===1);
   const date=new Date(Date.now()+2*86400000).toISOString().slice(0,10);
   const booking=(id=entitlement.id,orderId=order.id)=>({orderId,entitlementId:id,date,time:'09:00'});
   await request('/appointments','POST',booking(),alice.token,400);
@@ -116,7 +125,7 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
   await admin('/appointments/'+second.id,'PUT',{status:'completed'},400);
   await request('/appointments','POST',booking(),alice.token,400);
   let saved=await request('/orders/'+order.id,'GET',undefined,alice.token);
-  assert.equal(saved.package.services[0].used,1);assert.equal(saved.status,'ready');
+  assert.equal(saved.package.services.find(s=>s.id===entitlement.id).used,1);assert.equal(saved.status,'ready');
   await admin('/orders/'+order.id,'PUT',{status:'completed'},400);
   await admin('/orders/'+order.id,'POST',{action:'refund',note:'已核销不可全额退'},400);
   const changed=JSON.parse(JSON.stringify(gold.packagePlans));changed[0].services[1].total=9;
@@ -133,11 +142,11 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
   const refundable=orders[1];
   await admin('/orders/'+refundable.id,'POST',{action:'confirmPayment',note:'隔离验收收款'});
   const pendingBooking=await request('/appointments','POST',booking(refundable.package.services[0].id,refundable.id),alice.token);
-  const beforeStock=(await admin('/products','GET')).find(p=>p.id===gold.id).stock;
+  const beforeStock=(await admin('/products','GET')).find(p=>p.id===refundable.productId).stock;
   await admin('/orders/'+refundable.id,'POST',{action:'refund',note:'未使用全额退'});
   assert.equal((await request('/appointments','GET',undefined,alice.token)).find(a=>a.id===pendingBooking.id).status,'cancelled');
   await admin('/appointments/'+pendingBooking.id,'PUT',{status:'completed'},400);
-  assert.equal((await admin('/products','GET')).find(p=>p.id===gold.id).stock,beforeStock+1);
+  assert.equal((await admin('/products','GET')).find(p=>p.id===refundable.productId).stock,beforeStock+1);
   await admin('/orders/'+refundable.id,'POST',{action:'refund',note:'重复退款'},400);
   assert.deepEqual(await request('/earnings','GET',undefined,alice.token),[]);
   const snapshot=JSON.parse(fs.readFileSync(file,'utf8'));
@@ -149,5 +158,5 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
   assert.equal(after.products.find(p=>p.id===gold.id).packagePlans[0].services[1].total,9);
   assert.deepEqual(after.orders,snapshot.orders);
   assert.ok(previous.products.every(p=>after.products.some(x=>x.id===p.id)));
-  console.log(JSON.stringify({ok:true,plans:9,checks:['six prices and nine plans','strict choice and option validation','server pricing','independent immutable entitlements','pending payment guard','ownership and store restriction','concurrent overbooking rejected','cancel releases quota','single-use completion','partial completion keeps order active','full completion closes order','unused refund cancels bookings and restores stock once','used refund rejected','operator edits survive restart','previous data preserved','no invented commissions']}));
+  console.log(JSON.stringify({ok:true,plans:6,checks:['six document-aligned plans, service counts and choice rules','strict choice and option validation','server pricing','independent immutable entitlements','pending payment guard','ownership and store restriction','concurrent overbooking rejected','cancel releases quota','single-use completion','partial completion keeps order active','full completion closes order','unused refund cancels bookings and restores stock once','used refund rejected','operator edits survive restart','previous data preserved','no invented commissions']}));
 })().catch(error=>{console.error(error);process.exitCode=1}).finally(async()=>{await stop();fs.rmSync(temp,{recursive:true,force:true})});

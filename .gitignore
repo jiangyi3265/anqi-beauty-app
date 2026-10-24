@@ -1,5 +1,5 @@
 # Node / UniApp
-node_modules/
+node_modules
 dist/
 unpackage/
 # Business data and uploaded media stay local
@@ -7,6 +7,8 @@ server/data/
 static/uploads/
 # Local verification, deployment records and helper runtimes
 verification/
+private/
+/undefined/
 tools/remote-runtime/
 wechat-upload*.json
 project.private.config.json

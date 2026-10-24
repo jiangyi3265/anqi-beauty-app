@@ -1,0 +1,904 @@
+{
+  "category": {
+    "id": "category-vip-packages",
+    "name": "VIP套餐",
+    "sort": 3,
+    "enabled": true
+  },
+  "products": [
+    {
+      "id": "jimeili-vip-6980",
+      "categoryId": "category-vip-packages",
+      "name": "黄金VIP套餐",
+      "subtitle": "高科抗衰 · 光屿五选一 · 明星三选一",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 6980,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 20,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "包含高科抗衰项目、光屿重启五选一及明星项目三选一。自选项目各1次；面/颈任选项目共用所列次数，服务部位请与门店确认。门店确认收款后，可按项目分次预约，每完成一次服务核销一次。",
+      "packagePlans": [
+        {
+          "id": "xiurong-20261024",
+          "name": "黄金VIP方案",
+          "services": [
+            {
+              "id": "sculpt-face-neck",
+              "name": "童颜美雕（面/颈任选）",
+              "total": 5,
+              "referencePrice": 4980
+            },
+            {
+              "id": "9d-face-neck",
+              "name": "9D变脸术（面/颈任选）",
+              "total": 3,
+              "referencePrice": 9980
+            },
+            {
+              "id": "hyaluronic",
+              "name": "玻尿酸原液",
+              "total": 3,
+              "referencePrice": 980
+            },
+            {
+              "id": "silk-protein",
+              "name": "蚕丝蛋白种植",
+              "total": 3,
+              "referencePrice": 980
+            },
+            {
+              "id": "peptide-repair",
+              "name": "多肽营养修复",
+              "total": 3,
+              "referencePrice": 980
+            },
+            {
+              "id": "youth-support",
+              "name": "青春定格支架",
+              "total": 3,
+              "referencePrice": 980
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "明星细胞抗衰项目 光屿重启 五选一",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 面部 皮贴骨",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 面部 轮廓重现",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 面部 眼纹清零",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 面部 美白嫩肤",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 身体 代谢溶脂",
+                  "total": 1,
+                  "referencePrice": 3980
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目 三选一",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "tcm",
+                  "name": "中医养生特调",
+                  "total": 1,
+                  "referencePrice": 1980
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 1980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 1980
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jimeili-vip-13800",
+      "categoryId": "category-vip-packages",
+      "name": "铂金VIP套餐",
+      "subtitle": "高科抗衰 · 光屿五选一 · 明星三选一",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 13800,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 21,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "包含高科抗衰项目、光屿重启五选一及明星项目三选一。自选项目各1次；面/颈任选项目共用所列次数，服务部位请与门店确认。门店确认收款后，可按项目分次预约，每完成一次服务核销一次。",
+      "packagePlans": [
+        {
+          "id": "xiurong-20261024",
+          "name": "铂金VIP方案",
+          "services": [
+            {
+              "id": "ai",
+              "name": "双逆/金钻（1+1模式）",
+              "total": 1,
+              "referencePrice": 19800
+            },
+            {
+              "id": "9d-face-neck",
+              "name": "9D变脸术（面/颈任选）",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "hyaluronic",
+              "name": "玻尿酸原液",
+              "total": 6,
+              "referencePrice": 1980
+            },
+            {
+              "id": "silk-protein",
+              "name": "蚕丝蛋白种植",
+              "total": 6,
+              "referencePrice": 1980
+            },
+            {
+              "id": "peptide-repair",
+              "name": "多肽营养修复",
+              "total": 6,
+              "referencePrice": 1980
+            },
+            {
+              "id": "youth-support",
+              "name": "青春定格支架",
+              "total": 6,
+              "referencePrice": 1980
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "明星细胞抗衰项目 光屿重启 五选一",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 面部 皮贴骨",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 面部 轮廓重现",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 面部 眼纹清零",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 面部 美白嫩肤",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 身体 代谢溶脂",
+                  "total": 1,
+                  "referencePrice": 3980
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目 三选一",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "tcm",
+                  "name": "中医养生特调",
+                  "total": 1,
+                  "referencePrice": 1980
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 1980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 1980
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jimeili-vip-26800",
+      "categoryId": "category-vip-packages",
+      "name": "钻石VIP套餐",
+      "subtitle": "高科抗衰 · 光屿五选一 · 明星三选一",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 26800,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 22,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "包含高科抗衰项目、光屿重启五选一及明星项目三选一。自选项目各1次；面/颈任选项目共用所列次数，服务部位请与门店确认。门店确认收款后，可按项目分次预约，每完成一次服务核销一次。",
+      "packagePlans": [
+        {
+          "id": "xiurong-20261024",
+          "name": "钻石VIP方案",
+          "services": [
+            {
+              "id": "thermage",
+              "name": "超玛吉",
+              "total": 1,
+              "referencePrice": 29800
+            },
+            {
+              "id": "ai",
+              "name": "双逆/金钻（1+1模式）",
+              "total": 1,
+              "referencePrice": 19800
+            },
+            {
+              "id": "9d-face-neck",
+              "name": "9D变脸术（面/颈任选）",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "hyaluronic",
+              "name": "玻尿酸原液",
+              "total": 6,
+              "referencePrice": 1980
+            },
+            {
+              "id": "silk-protein",
+              "name": "蚕丝蛋白种植",
+              "total": 6,
+              "referencePrice": 1980
+            },
+            {
+              "id": "peptide-repair",
+              "name": "多肽营养修复",
+              "total": 6,
+              "referencePrice": 1980
+            },
+            {
+              "id": "youth-support",
+              "name": "青春定格支架",
+              "total": 6,
+              "referencePrice": 1980
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "明星细胞抗衰项目 光屿重启 五选一",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 面部 皮贴骨",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 面部 轮廓重现",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 面部 眼纹清零",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 面部 美白嫩肤",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 身体 代谢溶脂",
+                  "total": 1,
+                  "referencePrice": 3980
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目 三选一",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "tcm",
+                  "name": "中医养生特调",
+                  "total": 1,
+                  "referencePrice": 1980
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 1980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 1980
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jimeili-vip-49800",
+      "categoryId": "category-vip-packages",
+      "name": "女王VIP套餐",
+      "subtitle": "高科抗衰 · 光屿五选一 · 明星三选一",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 49800,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 23,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "包含高科抗衰项目、光屿重启五选一及明星项目三选一。自选项目各1次；面/颈任选项目共用所列次数，服务部位请与门店确认。门店确认收款后，可按项目分次预约，每完成一次服务核销一次。",
+      "packagePlans": [
+        {
+          "id": "xiurong-20261024",
+          "name": "女王VIP方案",
+          "services": [
+            {
+              "id": "thermage-face",
+              "name": "超玛吉 面部",
+              "total": 1,
+              "referencePrice": 29800
+            },
+            {
+              "id": "thermage-eye",
+              "name": "超玛吉 眼部",
+              "total": 1,
+              "referencePrice": 19800
+            },
+            {
+              "id": "thermage-neck",
+              "name": "超玛吉 颈部",
+              "total": 1,
+              "referencePrice": 29800
+            },
+            {
+              "id": "ai-face",
+              "name": "双逆/金钻 面部（2+2模式）",
+              "total": 1,
+              "referencePrice": 29800
+            },
+            {
+              "id": "ai-eye",
+              "name": "双逆/金钻 眼部（2+2模式）",
+              "total": 1,
+              "referencePrice": 19800
+            },
+            {
+              "id": "ai-neck",
+              "name": "双逆/金钻 颈部（2+2模式）",
+              "total": 1,
+              "referencePrice": 29800
+            },
+            {
+              "id": "9d-face-neck",
+              "name": "9D变脸术（面/颈任选）",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "hyaluronic",
+              "name": "玻尿酸原液",
+              "total": 6,
+              "referencePrice": 1980
+            },
+            {
+              "id": "silk-protein",
+              "name": "蚕丝蛋白种植",
+              "total": 6,
+              "referencePrice": 1980
+            },
+            {
+              "id": "peptide-repair",
+              "name": "多肽营养修复",
+              "total": 6,
+              "referencePrice": 1980
+            },
+            {
+              "id": "youth-support",
+              "name": "青春定格支架",
+              "total": 6,
+              "referencePrice": 1980
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "明星细胞抗衰项目 光屿重启 五选一",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 面部 皮贴骨",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 面部 轮廓重现",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 面部 眼纹清零",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 面部 美白嫩肤",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 身体 代谢溶脂",
+                  "total": 1,
+                  "referencePrice": 3980
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目 三选一",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "tcm",
+                  "name": "中医养生特调",
+                  "total": 1,
+                  "referencePrice": 1980
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 1980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 1980
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jimeili-vip-99800",
+      "categoryId": "category-vip-packages",
+      "name": "至尊VIP套餐",
+      "subtitle": "高科抗衰 · 光屿五选一 · 明星三选一",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 99800,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 24,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "包含高科抗衰项目、光屿重启五选一及明星项目三选一。自选项目各1次；面/颈任选项目共用所列次数，服务部位请与门店确认。门店确认收款后，可按项目分次预约，每完成一次服务核销一次。",
+      "packagePlans": [
+        {
+          "id": "xiurong-20261024",
+          "name": "至尊VIP方案",
+          "services": [
+            {
+              "id": "thermage-face",
+              "name": "超玛吉 面部",
+              "total": 2,
+              "referencePrice": 59600
+            },
+            {
+              "id": "thermage-eye",
+              "name": "超玛吉 眼部",
+              "total": 2,
+              "referencePrice": 39600
+            },
+            {
+              "id": "thermage-neck",
+              "name": "超玛吉 颈部",
+              "total": 2,
+              "referencePrice": 59600
+            },
+            {
+              "id": "ai-face",
+              "name": "双逆/金钻 面部（3+3模式）",
+              "total": 2,
+              "referencePrice": 79600
+            },
+            {
+              "id": "ai-eye",
+              "name": "双逆/金钻 眼部（3+3模式）",
+              "total": 2,
+              "referencePrice": 39600
+            },
+            {
+              "id": "ai-neck",
+              "name": "双逆/金钻 颈部（3+3模式）",
+              "total": 2,
+              "referencePrice": 79600
+            },
+            {
+              "id": "9d-face",
+              "name": "9D变脸术 面部",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-neck",
+              "name": "9D变脸术 颈部",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-body",
+              "name": "9D变脸术 身体任选一个部位",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "hyaluronic",
+              "name": "玻尿酸原液",
+              "total": 12,
+              "referencePrice": 7920
+            },
+            {
+              "id": "silk-protein",
+              "name": "蚕丝蛋白种植",
+              "total": 12,
+              "referencePrice": 7920
+            },
+            {
+              "id": "peptide-repair",
+              "name": "多肽营养修复",
+              "total": 12,
+              "referencePrice": 7920
+            },
+            {
+              "id": "youth-support",
+              "name": "青春定格支架",
+              "total": 12,
+              "referencePrice": 7920
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "明星细胞抗衰项目 光屿重启 五选一",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 面部 皮贴骨",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 面部 轮廓重现",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 面部 眼纹清零",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 面部 美白嫩肤",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 身体 代谢溶脂",
+                  "total": 1,
+                  "referencePrice": 3980
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目 三选一",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "tcm",
+                  "name": "中医养生特调",
+                  "total": 1,
+                  "referencePrice": 1980
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 1980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 1980
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "jimeili-vip-199800",
+      "categoryId": "category-vip-packages",
+      "name": "帝王VIP套餐",
+      "subtitle": "高科抗衰 · 光屿五选一 · 明星三选一",
+      "brand": "暨美丽",
+      "image": "/static/reference/shortcut-vip.svg",
+      "price": 199800,
+      "kind": "service",
+      "stock": 100,
+      "sold": 0,
+      "sort": 25,
+      "enabled": true,
+      "status": "published",
+      "home": false,
+      "recommended": false,
+      "gift": false,
+      "trial": false,
+      "trialOnly": false,
+      "description": "包含高科抗衰项目、光屿重启五选一及明星项目三选一。自选项目各1次；面/颈任选项目共用所列次数，服务部位请与门店确认。门店确认收款后，可按项目分次预约，每完成一次服务核销一次。",
+      "packagePlans": [
+        {
+          "id": "xiurong-20261024",
+          "name": "帝王VIP方案",
+          "services": [
+            {
+              "id": "thermage-face",
+              "name": "超玛吉 面部",
+              "total": 5,
+              "referencePrice": 149000
+            },
+            {
+              "id": "thermage-eye",
+              "name": "超玛吉 眼部",
+              "total": 5,
+              "referencePrice": 99000
+            },
+            {
+              "id": "thermage-neck",
+              "name": "超玛吉 颈部",
+              "total": 5,
+              "referencePrice": 149000
+            },
+            {
+              "id": "ai-face",
+              "name": "双逆/金钻 面部（3+3模式）",
+              "total": 5,
+              "referencePrice": 199000
+            },
+            {
+              "id": "ai-eye",
+              "name": "双逆/金钻 眼部（3+3模式）",
+              "total": 5,
+              "referencePrice": 99000
+            },
+            {
+              "id": "ai-neck",
+              "name": "双逆/金钻 颈部（3+3模式）",
+              "total": 5,
+              "referencePrice": 199000
+            },
+            {
+              "id": "9d-face",
+              "name": "9D变脸术 面部",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-neck",
+              "name": "9D变脸术 颈部",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "9d-body",
+              "name": "9D变脸术 身体任选一个部位",
+              "total": 6,
+              "referencePrice": 19980
+            },
+            {
+              "id": "hyaluronic",
+              "name": "玻尿酸原液",
+              "total": 12,
+              "referencePrice": 7920
+            },
+            {
+              "id": "silk-protein",
+              "name": "蚕丝蛋白种植",
+              "total": 12,
+              "referencePrice": 7920
+            },
+            {
+              "id": "peptide-repair",
+              "name": "多肽营养修复",
+              "total": 12,
+              "referencePrice": 7920
+            },
+            {
+              "id": "youth-support",
+              "name": "青春定格支架",
+              "total": 12,
+              "referencePrice": 7920
+            }
+          ],
+          "groups": [
+            {
+              "id": "glow",
+              "name": "明星细胞抗衰项目 光屿重启 五选一",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "glow-1",
+                  "name": "光屿重启 面部 皮贴骨",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-2",
+                  "name": "光屿重启 面部 轮廓重现",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-3",
+                  "name": "光屿重启 面部 眼纹清零",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-4",
+                  "name": "光屿重启 面部 美白嫩肤",
+                  "total": 1,
+                  "referencePrice": 3980
+                },
+                {
+                  "id": "glow-5",
+                  "name": "光屿重启 身体 代谢溶脂",
+                  "total": 1,
+                  "referencePrice": 3980
+                }
+              ]
+            },
+            {
+              "id": "star",
+              "name": "明星项目 三选一",
+              "pick": 1,
+              "services": [
+                {
+                  "id": "tcm",
+                  "name": "中医养生特调",
+                  "total": 1,
+                  "referencePrice": 1980
+                },
+                {
+                  "id": "private",
+                  "name": "私密内环境调理",
+                  "total": 1,
+                  "referencePrice": 1980
+                },
+                {
+                  "id": "wrinkle",
+                  "name": "单部位去皱",
+                  "total": 1,
+                  "referencePrice": 1980
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
