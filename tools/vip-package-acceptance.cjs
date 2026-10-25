@@ -143,6 +143,27 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
   assert.equal(memberOrder.package.services[0].kind,'goods');assert.equal(memberOrder.package.services[0].used,1);assert.equal(memberOrder.package.services[1].productId,sourceService.id);assert.equal(memberOrder.total,450);
   await request('/orders/'+mixedGrant.id,'GET',undefined,alice.token,404);
   await request('/admin/orders/'+mixedGrant.id,'POST',{action:'pickup',entitlementId:'fixed:cream',expectedUsed:1},bob.token,403);
+  // Edit a sold package while an imported member still has remaining entitlements.
+  const replacementGoods=await admin('/products','POST',{name:'替换精华',kind:'goods',price:300,stock:20,status:'published',enabled:true});
+  const replacementService=await admin('/products','POST',{name:'替换护理',kind:'service',price:400,stock:20,status:'published',enabled:true});
+  const beforeEditOrders=await admin('/orders','GET');
+  const beforeEditMembers=await admin('/users','GET');
+  const beforeEditMe=await request('/me','GET',undefined,bob.token);
+  const editedPlans=[{id:'mixed',name:'新版方案',services:[{id:'cream',productId:replacementGoods.id,name:replacementGoods.name,kind:'goods',total:5},{id:'care',productId:replacementService.id,name:replacementService.name,kind:'service',total:8}],groups:[]}];
+  await admin('/products/'+mixed.id,'PUT',{name:'新版组合套餐',price:888,packagePlans:editedPlans});
+  const edited=(await admin('/products','GET')).find(p=>p.id===mixed.id);
+  assert.equal(edited.price,888);assert.equal(edited.packagePlans[0].services[0].productId,replacementGoods.id);assert.equal(edited.packagePlans[0].services[1].total,8);
+  assert.deepEqual(await admin('/orders','GET'),beforeEditOrders);
+  assert.deepEqual(await admin('/users','GET'),beforeEditMembers);
+  assert.deepEqual(await request('/me','GET',undefined,bob.token),beforeEditMe);
+  const invalidPlans=structuredClone(editedPlans);invalidPlans[0].services[0].total=0;
+  await admin('/products/'+mixed.id,'PUT',{price:999,packagePlans:invalidPlans},400);
+  assert.deepEqual((await admin('/products','GET')).find(p=>p.id===mixed.id),edited);
+  const newPurchase=await request('/orders','POST',body(edited),alice.token);
+  assert.equal(newPurchase.total,888);assert.equal(newPurchase.package.planName,'新版方案');assert.equal(newPurchase.package.services[0].name,'替换精华');assert.equal(newPurchase.package.services[0].total,5);assert.equal(newPurchase.package.services[1].total,8);
+  const newGrant=await admin('/legacyMembers/'+buyer.id,'POST',{...mixedGrantBody,requestId:crypto.randomUUID(),reference:crypto.randomUUID(),total:800,used:{},packageSelection:select(edited.packagePlans[0])});
+  assert.equal(newGrant.total,800);assert.equal(newGrant.package.services[0].total,5);assert.equal(newGrant.package.services[1].total,8);
+  assert.deepEqual(await request('/orders/'+mixedGrant.id,'GET',undefined,bob.token),memberOrder);
   const appt=await request('/appointments','POST',{orderId:mixedGrant.id,entitlementId:'fixed:care',date:new Date(Date.now()+86400000*3).toISOString().slice(0,10),time:'11:00'},bob.token);
   await admin('/appointments/'+appt.id,'PUT',{status:'completed'});
   await admin('/appointments/'+appt.id,'PUT',{status:'completed'},400);
@@ -229,5 +250,5 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
   assert.equal(after.products.find(p=>p.id===gold.id).packagePlans[0].services[1].total,9);
   assert.deepEqual(after.orders,snapshot.orders);
   assert.ok(previous.products.every(p=>after.products.some(x=>x.id===p.id)));
-  console.log(JSON.stringify({ok:true,plans:6,checks:['linked catalogue products and service snapshots','member grant of mixed package with historical pickup count','service completion then store pickup closes the same order','concurrent duplicate pickup and unauthorized pickup rejected','six document-aligned plans, service counts and choice rules','strict choice and option validation','server pricing','independent immutable entitlements','pending payment guard','ownership and store restriction','concurrent overbooking rejected','cancel releases quota','single-use completion','partial completion keeps order active','full completion closes order','unused refund cancels bookings and restores stock once','used refund rejected','operator edits survive restart','previous data preserved','no invented commissions']}));
+  console.log(JSON.stringify({ok:true,plans:6,checks:['editing sold linked package preserves all existing orders and member records','new purchases and grants use revised goods price and counts','invalid edit rolls back and original member can still finish fulfillment','linked catalogue products and service snapshots','member grant of mixed package with historical pickup count','service completion then store pickup closes the same order','concurrent duplicate pickup and unauthorized pickup rejected','six document-aligned plans, service counts and choice rules','strict choice and option validation','server pricing','independent immutable entitlements','pending payment guard','ownership and store restriction','concurrent overbooking rejected','cancel releases quota','single-use completion','partial completion keeps order active','full completion closes order','unused refund cancels bookings and restores stock once','used refund rejected','operator edits survive restart','previous data preserved','no invented commissions']}));
 })().catch(error=>{console.error(error);process.exitCode=1}).finally(async()=>{await stop();fs.rmSync(temp,{recursive:true,force:true})});
