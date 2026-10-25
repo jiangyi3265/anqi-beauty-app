@@ -116,7 +116,8 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
   await admin('/legacyMembers/'+buyer.id,'POST',{...grantBody,requestId:crypto.randomUUID(),reference:crypto.randomUUID()},400);
   assert.equal((await request('/orders/'+granted.id,'GET',undefined,bob.token)).package.services[0].total,6);
   const sourceGoods=await admin('/products','POST',{name:'隔离测试面霜',kind:'goods',price:100,stock:20,status:'published',enabled:true});
-  const mixed=await admin('/products','POST',{name:'服务实物组合套餐',kind:'service',price:500,stock:10,status:'published',enabled:true,packagePlans:[{id:'mixed',name:'组合方案',services:[{id:'cream',productId:sourceGoods.id,name:'客户端错误名称',kind:'service',total:2,referencePrice:100},{id:'care',name:'原有手工服务',total:1}],groups:[]}]});
+  const sourceService=await admin('/products','POST',{name:'已录入护理服务',kind:'service',price:200,stock:10,status:'published',enabled:true});
+  const mixed=await admin('/products','POST',{name:'服务实物组合套餐',kind:'service',price:500,stock:10,status:'published',enabled:true,packagePlans:[{id:'mixed',name:'组合方案',services:[{id:'cream',productId:sourceGoods.id,name:'客户端错误名称',kind:'service',total:2,referencePrice:100},{id:'care',productId:sourceService.id,name:'客户端服务名称',total:1}],groups:[]}]});
   assert.equal(mixed.packagePlans[0].services[0].name,'隔离测试面霜');assert.equal(mixed.packagePlans[0].services[0].kind,'goods');
   const mixedOrder=await request('/orders','POST',body(mixed),alice.token);
   const pickup={action:'pickup',entitlementId:'fixed:cream',expectedUsed:0};
@@ -134,6 +135,21 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
   const serviceAppointment=await request('/appointments','POST',{orderId:mixedOrder.id,entitlementId:'fixed:care',date:new Date(Date.now()+86400000*2).toISOString().slice(0,10),time:'10:00'},alice.token);
   await admin('/appointments/'+serviceAppointment.id,'PUT',{status:'completed'});
   assert.equal((await request('/orders/'+mixedOrder.id,'GET',undefined,alice.token)).status,'completed');
+  // The same linked mixed package must work through member grants, not just checkout.
+  const mixedGrantBody={...grantBody,requestId:crypto.randomUUID(),reference:crypto.randomUUID(),productId:mixed.id,packageSelection:select(mixed.packagePlans[0]),total:450,used:{'fixed:cream':1}};
+  const mixedGrant=await admin('/legacyMembers/'+buyer.id,'POST',mixedGrantBody);
+  assert.equal((await admin('/legacyMembers/'+buyer.id,'POST',mixedGrantBody)).id,mixedGrant.id);
+  let memberOrder=await request('/orders/'+mixedGrant.id,'GET',undefined,bob.token);
+  assert.equal(memberOrder.package.services[0].kind,'goods');assert.equal(memberOrder.package.services[0].used,1);assert.equal(memberOrder.package.services[1].productId,sourceService.id);assert.equal(memberOrder.total,450);
+  await request('/orders/'+mixedGrant.id,'GET',undefined,alice.token,404);
+  await request('/admin/orders/'+mixedGrant.id,'POST',{action:'pickup',entitlementId:'fixed:cream',expectedUsed:1},bob.token,403);
+  const appt=await request('/appointments','POST',{orderId:mixedGrant.id,entitlementId:'fixed:care',date:new Date(Date.now()+86400000*3).toISOString().slice(0,10),time:'11:00'},bob.token);
+  await admin('/appointments/'+appt.id,'PUT',{status:'completed'});
+  await admin('/appointments/'+appt.id,'PUT',{status:'completed'},400);
+  memberOrder=await request('/orders/'+mixedGrant.id,'GET',undefined,bob.token);assert.equal(memberOrder.status,'ready');assert.equal(memberOrder.package.services[0].used,1);
+  memberOrder=await admin('/orders/'+mixedGrant.id,'POST',{action:'pickup',entitlementId:'fixed:cream',expectedUsed:1});
+  assert.equal(memberOrder.status,'completed');assert.equal(memberOrder.package.services[0].used,2);assert.equal(memberOrder.package.services[1].used,1);assert.equal(memberOrder.pickups.length,1);
+  await admin('/orders/'+mixedGrant.id,'POST',{action:'pickup',entitlementId:'fixed:cream',expectedUsed:1},400);
   const gold=products[0], goldBody=body(gold);
   await request('/orders','POST',goldBody,undefined,401);
   await request('/orders','POST',{...goldBody,packageSelection:{planId:'wrong',groups:{}}},alice.token,400);
@@ -213,5 +229,5 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
   assert.equal(after.products.find(p=>p.id===gold.id).packagePlans[0].services[1].total,9);
   assert.deepEqual(after.orders,snapshot.orders);
   assert.ok(previous.products.every(p=>after.products.some(x=>x.id===p.id)));
-  console.log(JSON.stringify({ok:true,plans:6,checks:['six document-aligned plans, service counts and choice rules','strict choice and option validation','server pricing','independent immutable entitlements','pending payment guard','ownership and store restriction','concurrent overbooking rejected','cancel releases quota','single-use completion','partial completion keeps order active','full completion closes order','unused refund cancels bookings and restores stock once','used refund rejected','operator edits survive restart','previous data preserved','no invented commissions']}));
+  console.log(JSON.stringify({ok:true,plans:6,checks:['linked catalogue products and service snapshots','member grant of mixed package with historical pickup count','service completion then store pickup closes the same order','concurrent duplicate pickup and unauthorized pickup rejected','six document-aligned plans, service counts and choice rules','strict choice and option validation','server pricing','independent immutable entitlements','pending payment guard','ownership and store restriction','concurrent overbooking rejected','cancel releases quota','single-use completion','partial completion keeps order active','full completion closes order','unused refund cancels bookings and restores stock once','used refund rejected','operator edits survive restart','previous data preserved','no invented commissions']}));
 })().catch(error=>{console.error(error);process.exitCode=1}).finally(async()=>{await stop();fs.rmSync(temp,{recursive:true,force:true})});
