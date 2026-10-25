@@ -79,6 +79,19 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
   const admin = (route,method,body,expected=200) => request('/admin'+route,method,body,undefined,expected,true);
   const select = plan => ({planId:plan.id,groups:Object.fromEntries(plan.groups.map(g=>[g.id,g.services.slice(0,g.pick).map(s=>({serviceId:s.id,...(s.options?.length?{option:s.options[0]}:{})}))]))});
   const body = (p,plan=p.packagePlans[0]) => ({productId:p.id,quantity:1,spec:'single',storeId:'store-1',packageSelection:select(plan)});
+  // Custom package creation must leave existing members and orders untouched.
+  const beforeMembers=await admin('/users','GET');
+  const beforeOrders=await admin('/orders','GET');
+  const custom=await admin('/products','POST',{name:'自定义护理套餐',kind:'service',price:1688,stock:10,status:'draft',enabled:false,packagePlans:[{id:'custom-plan',name:'标准方案',services:[{id:'custom-service',name:'深层护理',total:6,referencePrice:0}],groups:[]}]});
+  assert.equal(custom.price,1688);assert.equal(custom.packagePlans[0].services[0].total,6);
+  assert.deepEqual(await admin('/users','GET'),beforeMembers);
+  assert.deepEqual(await admin('/orders','GET'),beforeOrders);
+  await admin('/products/'+custom.id,'PUT',{status:'published',enabled:true});
+  const customOrder=await request('/orders','POST',body(custom),alice.token);
+  assert.equal(customOrder.total,1688);assert.equal(customOrder.package.services[0].total,6);
+  await admin('/products/'+custom.id,'PUT',{name:'调整后的套餐',price:2000,packagePlans:[{id:'custom-plan',name:'新方案',services:[{id:'custom-service',name:'新项目',total:9,referencePrice:0}],groups:[]}]});
+  const oldCustomOrder=await request('/orders/'+customOrder.id,'GET',undefined,alice.token);
+  assert.equal(oldCustomOrder.total,1688);assert.equal(oldCustomOrder.package.services[0].total,6);assert.equal(oldCustomOrder.package.services[0].name,'深层护理');
   const gold=products[0], goldBody=body(gold);
   await request('/orders','POST',goldBody,undefined,401);
   await request('/orders','POST',{...goldBody,packageSelection:{planId:'wrong',groups:{}}},alice.token,400);
