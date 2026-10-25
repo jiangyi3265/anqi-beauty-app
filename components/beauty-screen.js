@@ -84,7 +84,7 @@ const screen = {
   regionValue(){return String(this.form?.city||'').split(/[ ,，]+/).filter(Boolean).slice(0,3)}
  }, mounted(){
 // #ifdef MP-WEIXIN
-this.nativeDevice=true;this.statusBar=uni.getSystemInfoSync().statusBarHeight||0;
+this.nativeDevice=true;this.statusBar=uni.getWindowInfo().statusBarHeight||0;
 // #endif
 if(this.page==='appointments'&&this.query.tab==='booked')this.tab=1;if(this.query.invite)uni.setStorageSync('invite',this.query.invite);this.spec=this.query.spec||'single';this.mallCategory=this.query.category||'';this.quantity=Math.max(1,Number(this.query.quantity)||1);this.refresh()},
  methods:{money,toast,

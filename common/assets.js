@@ -6,10 +6,13 @@ const MP_IMAGE_MAP = {
   '/static/brand/284c27d5c43001f0f7f0ba76dcd24623.png': '/static/brand/284c27d5c43001f0f7f0ba76dcd24623.jpg'
 }
 function localAsset(path) {
-  try {
-    if (typeof uni !== 'undefined' && uni.getSystemInfoSync().uniPlatform === 'mp-weixin') return MP_IMAGE_MAP[path] || path
-  } catch {}
+  // 平台在编译时确定，避免每个字符串都读取一次设备信息。
+  // #ifdef MP-WEIXIN
+  return MP_IMAGE_MAP[path] || path
+  // #endif
+  // #ifndef MP-WEIXIN
   return path
+  // #endif
 }
 export function resolveUploadedAssets(value, origin) {
   if (typeof value === 'string') {

@@ -4,6 +4,23 @@ const crypto = require('node:crypto');
 // Each collection has its own table; payloads preserve the mini-program contract.
 module.exports = async function createStore(seed) {
  const pool=mysql.createPool({host:'127.0.0.1',port:Number(process.env.DB_PORT||3306),user:process.env.DB_USER,password:process.env.DB_PASSWORD,database:process.env.DB_NAME,connectionLimit:3,charset:'utf8mb4'});
+ if(process.env.DB_READ_ONLY === 'true') {
+  return {async run(fn) {
+   const c=await pool.getConnection();
+   try {
+    await c.query('SET TRANSACTION READ ONLY');
+    await c.beginTransaction();
+    const [lock]=await c.query('SELECT config FROM anqi_lock WHERE id=1');
+    if(!lock.length)throw new Error('Existing database is not initialized');
+    const state={config:JSON.parse(lock[0].config)};
+    const [tables]=await c.query('SHOW TABLES');
+    for(const row of tables){const table=Object.values(row)[0];if(!/^anqi_[A-Za-z]+$/.test(table)||table==='anqi_lock')continue;const [items]=await c.query('SELECT payload FROM `'+table+'`');state[table.slice(5)]=items.map(x=>JSON.parse(x.payload));}
+    const result=await fn(state);
+    await c.rollback();
+    return result;
+   } catch(e){await c.rollback();throw e} finally {c.release()}
+  }};
+ }
  const names=[...Object.keys(seed).filter(k=>Array.isArray(seed[k])),'accounts','sessions','audit'];
  await pool.query('CREATE TABLE IF NOT EXISTS anqi_lock (id INT PRIMARY KEY, config LONGTEXT NOT NULL) ENGINE=InnoDB');
  const [initialized]=await pool.query('INSERT IGNORE INTO anqi_lock VALUES (1,?)',[JSON.stringify(seed.config)]);

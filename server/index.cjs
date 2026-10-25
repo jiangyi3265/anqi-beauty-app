@@ -597,6 +597,7 @@ const server = http.createServer(async (req,res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
   try {
     const url = new URL(req.url,'http://localhost');
+    if(process.env.DB_READ_ONLY==='true' && !['GET','HEAD'].includes(req.method))fail('当前连接为只读模式，禁止修改服务器数据',403);
     if (url.pathname === '/api/pay/notify' && req.method === 'POST') { if (!WECHAT_PAY) fail('微信支付未开通',404); return wechatNotify(req,res); }
     if (url.pathname.startsWith('/api/')) { const payload=['POST','PUT'].includes(req.method)?await body(req):{};let result=WECHAT_PAY?await wechatRoute(req,url,payload):undefined;if(result===undefined)result=await txn(()=>route(req,url,payload)); if(result?.httpStatus){res.statusCode=result.httpStatus;delete result.httpStatus;} res.setHeader('Content-Type','application/json; charset=utf-8'); res.setHeader('Cache-Control','no-store'); return res.end(JSON.stringify(result,(key,value)=>key==='incomeSnapshot'?undefined:value)); }
     if (url.pathname === '/admin' || url.pathname.startsWith('/admin/')) fail('请使用若依管理端',404);
@@ -743,7 +744,7 @@ async function drainNotifications(){
  if(item){let result;try{result=await notifications.send(item.job,item.openid)}catch{result={status:'failed',error:'微信消息服务暂不可用'}}await transaction(state=>{const row=state.notifications.find(n=>n.id===item.job.id);if(row)Object.assign(row,result,{finishedAt:new Date().toISOString()})})}
  }finally{notificationWorkerBusy=false}
 }
-async function start(){if(process.env.DB_NAME)mysqlStore=await require('./mysql-store.cjs')(seed());await migrateOnStart();await settleIncome();await reconcileWechat().catch(e=>console.error('微信支付对账失败',e.message));setInterval(()=>reconcileWechat().catch(e=>console.error('微信支付对账失败',e.message)),60000).unref();setInterval(()=>drainNotifications().catch(()=>{}),5000).unref();setInterval(()=>settleIncome().catch(e=>console.error('收益入账失败',e.message)),60000).unref();server.listen(Number(process.env.PORT || 3000),HOST,() => { console.log('秀荣科技美肤业务服务: http://' + HOST + ':' + (process.env.PORT || 3000) + '/api/health'); console.log('演示开关：' + DEMO); });}start().catch(e=>{console.error(e);process.exit(1)});
+async function start(){if(process.env.DB_NAME)mysqlStore=await require('./mysql-store.cjs')(seed());if(process.env.DB_READ_ONLY!=='true'){await migrateOnStart();await settleIncome();await reconcileWechat().catch(e=>console.error('微信支付对账失败',e.message));setInterval(()=>reconcileWechat().catch(e=>console.error('微信支付对账失败',e.message)),60000).unref();setInterval(()=>drainNotifications().catch(()=>{}),5000).unref();setInterval(()=>settleIncome().catch(e=>console.error('收益入账失败',e.message)),60000).unref();}server.listen(Number(process.env.PORT || 3000),HOST,() => { console.log('秀荣科技美肤业务服务: http://' + HOST + ':' + (process.env.PORT || 3000) + '/api/health'); console.log('演示开关：' + DEMO); });}start().catch(e=>{console.error(e);process.exit(1)});
 
 
 

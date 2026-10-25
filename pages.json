@@ -160,8 +160,10 @@
   "globalStyle": {
     "navigationBarTitleText": "秀荣科技美肤",
     "backgroundColor": "#fcf9f6",
+    // #ifdef H5
     "rpxCalcMaxDeviceWidth": 480,
     "rpxCalcBaseDeviceWidth": 480,
+    // #endif
     "navigationBarTextStyle": "black",
     "backgroundTextStyle": "dark",
     "enablePullDownRefresh": true
