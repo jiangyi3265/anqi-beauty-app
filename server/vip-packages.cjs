@@ -14,6 +14,8 @@ function unique(rows, label) { if (new Set(rows.map(row => row.id)).size !== row
 function service(value) {
   const row = { id: identifier(value?.id, '项目编号'), name: requiredText(value?.name, '项目名称'), total: value?.total };
   if (!Number.isInteger(row.total) || row.total < 1 || row.total > 999) reject('项目次数须为1至999的整数');
+  if(value.productId!=null)row.productId=identifier(value.productId,'关联商品');
+  if(value.kind!=null){if(!['goods','service'].includes(value.kind))reject('项目类型无效');row.kind=value.kind;}
   if (value.referencePrice != null) {
     if (!Number.isFinite(value.referencePrice) || value.referencePrice < 0) reject('项目参考价值无效');
     row.referencePrice = value.referencePrice;
@@ -81,15 +83,22 @@ function selectPackage(product, selection) {
 }
 function remaining(order, entitlementId, appointments) {
   const service = order.package?.services.find(row => row.id === entitlementId);
-  if (!service) return 0;
+  if (!service || service.kind==='goods') return 0;
   const booked = appointments.filter(row => row.orderId === order.id && row.entitlementId === entitlementId && row.status === 'booked').length;
   return Math.max(0, service.total - service.used - booked);
 }
 function complete(order, appointment) {
   if (order.status !== 'ready') reject('套餐订单当前不可核销');
   const service = order.package.services.find(row => row.id === appointment.entitlementId);
-  if (!service || service.used >= service.total) reject('套餐项目次数已用完');
+  if (!service || service.kind==='goods' || service.used >= service.total) reject('套餐项目次数已用完');
   service.used++;
   if (order.package.services.every(row => row.used >= row.total)) { order.status = 'completed'; order.completedAt = new Date().toISOString(); }
 }
-module.exports = { validatePlans, seedCatalogue, selectPackage, remaining, complete };
+function pickup(order, entitlementId, expectedUsed, actor) {
+ const item=order.package?.services.find(s=>s.id===entitlementId);
+ if(order.status!=='ready'||order.paymentStatus!=='paid'||order.refundStatus==='refunded'||!item||item.kind!=='goods')reject('当前项目不可领取');
+ if(!Number.isInteger(expectedUsed)||expectedUsed!==item.used||item.used>=item.total)reject('领取记录已更新，请刷新后核对');
+ item.used++;order.pickups||=[];order.pickups.push({entitlementId,quantity:1,actor,createdAt:new Date().toISOString()});
+ if(order.package.services.every(s=>s.used>=s.total)){order.status='completed';order.completedAt=new Date().toISOString();}
+}
+module.exports = { pickup, validatePlans, seedCatalogue, selectPackage, remaining, complete };

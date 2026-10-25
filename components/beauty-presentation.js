@@ -93,7 +93,7 @@ export default function decorateScreen(base) {
       },
       orderServices() { return this.order?.package?.services || [] },
       entitlementTotals() {
-        return this.orderServices.reduce((total, item) => {
+        return this.orderServices.filter(item=>item.kind!=='goods').reduce((total, item) => {
           total.total += Number(item.total) || 0
           total.used += Number(item.used) || 0
           total.booked += this.bookedCount(this.order, item)

@@ -140,6 +140,12 @@ function validate(collection, b) {
   }
   if (collection === 'products' && out.packagePlans !== undefined) {
     out.packagePlans = vipPackages.validatePlans(out.packagePlans);
+    for(const plan of out.packagePlans)for(const item of [...plan.services,...plan.groups.flatMap(g=>g.services)]){
+      if(!item.productId)continue;
+      const source=db.products.find(p=>p.id===item.productId);
+      if(!source||source.packagePlans?.length||!['goods','service'].includes(source.kind))fail('关联商品不存在或为套餐，请重新选择');
+      item.name=source.name;item.kind=source.kind;
+    }
     if (out.packagePlans.length && (out.kind !== 'service' || out.skus?.length || out.coursePrice != null || out.trial || out.trialOnly || out.gift)) fail('套餐须为服务商品，不能同时设置SKU、疗程价或免费礼品');
   }
   return out;
@@ -386,6 +392,7 @@ async function route(req, url, b) {
       if(['confirmPayment','cancel'].includes(b.action)&&o.status==='pending'&&o.wechatPay?.prepayId&&!req.wechatClosed)fail('订单支付状态确认中，请稍后重试',409);
       if(b.action==='refund'&&o.paymentMode==='wechat'&&!req.wechatRefund)fail('微信支付订单需原路退款，请稍后重试',409);
       if(b.action==='confirmPayment'){if(o.status!=='pending')fail('只有待付款订单可确认收款');if(!text(b.note))fail('请填写线下收款凭证说明');o.status=o.product.kind==='goods'?'shipping':'ready';o.paymentStatus='paid';o.paymentMode='offline';o.paymentNote=text(b.note);o.paidAt=new Date().toISOString();notifications.enqueue(db,'orderPaid',o);const p=db.products.find(x=>x.id===o.productId);if(p)p.sold+=o.quantity;}
+      else if(b.action==='pickup'){vipPackages.pickup(o,b.entitlementId,b.expectedUsed,req.headers['x-anqi-actor']||'admin');}
       else if(b.action==='cancel'){if(o.status!=='pending')fail('只能取消未付款订单');o.status='cancelled';restore(o);}
       else if(b.action==='ship'){if(o.status!=='shipping')fail('订单不是待取货状态');if(!text(b.tracking))fail('请填写物流单号或取货说明');o.tracking=text(b.tracking);notifications.enqueue(db,'orderShipped',o);}
       else if(b.action==='refund'){if(!['ready','shipping','completed'].includes(o.status))fail('当前订单不可售后');if(o.refundStatus==='refunded')fail('订单已退款');if(o.package?.services.some(s=>s.used>0))fail('套餐已有核销记录，请联系门店处理售后，暂不支持部分退款');for(const a of db.appointments)if(a.orderId===o.id&&a.status==='booked'){a.status='cancelled';a.cancelReason='订单售后退款';notifications.enqueue(db,'appointmentCancelled',a);}o.refundStatus='refunded';o.refundNote=text(b.note);o.status='aftersale';restore(o);o.refundAt=new Date().toISOString();if(req.wechatRefund)o.wechatRefund=req.wechatRefund;}
@@ -552,7 +559,7 @@ async function route(req, url, b) {
       if (!o.package && db.appointments.some(a => a.orderId === o.id && a.status !== 'cancelled')) fail('该服务订单已预约');
     }
     const entitlement = o?.package?.services.find(row => row.id === b.entitlementId);
-    if (o?.package && (!entitlement || vipPackages.remaining(o,b.entitlementId,db.appointments) < 1)) fail('该套餐项目没有可预约次数');
+    if (o?.package && (!entitlement || entitlement.kind==='goods' || vipPackages.remaining(o,b.entitlementId,db.appointments) < 1)) fail('该套餐项目没有可预约次数');
     const product = entitlement ? { ...entitlement, kind: 'service' } : claim ? ((claim.products||[]).find(p=>p.id===b.productId)||db.products.find(p=>p.id===b.productId)) : o.product;
     if (!product) fail('商品不存在或已下架');
     if(product.kind!=='service')fail('实物礼品请到店领取，无需预约服务');
