@@ -23,7 +23,7 @@ async function start() {
   base = `http://127.0.0.1:${port}/api`;
   server = spawn(process.execPath, ['server/index.cjs'], {
     cwd: root,
-    env: { ...process.env, HOST: '127.0.0.1', PORT: String(port), DATA_FILE: file, DB_NAME: '', DEMO_MODE: 'false', NODE_ENV: 'test', WECHAT_MOCK: 'true', ADMIN_PASSWORD: secret, INTERNAL_SECRET: secret, PAYMENT_MODE: 'off' },
+    env: { ...process.env, HOST: '127.0.0.1', PORT: String(port), DATA_FILE: file, DB_NAME: '', DEMO_MODE: 'false', NODE_ENV: 'test', WECHAT_MOCK: 'true', ADMIN_PASSWORD: secret, INTERNAL_SECRET: secret, PAYMENT_MODE: 'off', WECHAT_TRANSFER_ENABLED:'false' },
     stdio: ['ignore', 'ignore', 'pipe']
   });
   let errors = '';
@@ -140,15 +140,16 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
 
   const ids = trials.map(product => product.id);
   await request('/claims', 'POST', { type: 'trial', productIds: ids }, undefined, 401);
-  await request('/claims', 'POST', { type: 'trial', productIds: ids.slice(0, 1) }, alice.token, 400);
+  await request('/claims', 'POST', { type: 'trial', productIds: [] }, alice.token, 400);
   await request('/claims', 'POST', { type: 'vip', productIds: ids }, alice.token, 400);
   await request('/orders', 'POST', { productId: ids[0], spec: 'single', quantity: 1, storeId: 'store-1' }, alice.token, 400);
-  const claim = await request('/claims', 'POST', { type: 'trial', productIds: ids }, alice.token);
+  const selectTrials = async token => {let row;for(const productId of ids)row=await request('/claims','POST',{type:'trial',productIds:[productId]},token);return row;};
+  const claim = await selectTrials(alice.token);
   assert.deepEqual(claim.products.map(product => product.referencePrice), [999, 6980, 6980]);
   await request('/claims', 'POST', { type: 'trial', productIds: ids }, alice.token, 400);
   assert.equal((await request('/orders', 'GET', undefined, alice.token)).length, 0);
   const afterClaim = await request('/bootstrap');
-  assert.ok(afterClaim.products.filter(product => ids.includes(product.id)).every(product => product.stock === 99));
+  assert.ok(afterClaim.products.filter(product => ids.includes(product.id)).every(product => product.stock === 100));
 
   const date = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
   const booking = (productId, time, claimId = claim.id) => ({ claimId, productId, storeId: 'store-1', date, time });
@@ -161,7 +162,7 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
   const products = () => request('/claims', 'GET', undefined, alice.token).then(rows => rows.find(row => row.id === claim.id).products);
   assert.deepEqual((await products()).map(product => product.useStatus), ['booked', 'booked', 'available']);
 
-  const bobClaim = await request('/claims', 'POST', { type: 'trial', productIds: ids }, bob.token);
+  const bobClaim = await selectTrials(bob.token);
   await request('/appointments', 'POST', booking(ids[0], '09:00', bobClaim.id), bob.token, 400);
   const otherBranch = await request('/appointments', 'POST', { ...booking(ids[1], '09:00', bobClaim.id), storeId: branch.id }, bob.token);
   assert.equal(first.store.id, originalStore.id);
@@ -193,8 +194,9 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
   assert.equal((await products()).find(product => product.id === ids[0]).useStatus, 'available');
   const rebooked = await request('/appointments', 'POST', booking(ids[0], '14:00'), alice.token);
   await request('/admin/appointments/' + second.id, 'PUT', { status: 'completed' }, undefined, 200, true);
-  assert.equal((await products()).find(product => product.id === ids[1]).useStatus, 'completed');
-  await request('/appointments', 'POST', booking(ids[1], '15:00'), alice.token, 400);
+  assert.equal((await products()).find(product => product.id === ids[1]).useStatus, 'available');
+  assert.equal((await request('/me','GET',undefined,alice.token)).trialQuota.remaining,1);
+  // 已完成一次后仍可选择同一项目；额度按每人总共3次计算。
   const third = await request('/appointments', 'POST', booking(ids[2], '15:00'), alice.token);
   for (const appointment of [rebooked, third]) await request('/admin/appointments/' + appointment.id, 'PUT', { status: 'completed' }, undefined, 200, true);
   assert.ok((await products()).every(product => product.useStatus === 'completed'));
@@ -210,5 +212,5 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
   assert.equal(saved.products.find(product => product.id === ids[0]).status, 'offline');
   assert.equal(saved.products.find(product => product.id === ids[1]).stock, 98);
   assert.equal(saved.claims.filter(row => row.userId === alice.user.id).length, 1);
-  console.log(JSON.stringify({ ok: true, checks: ['legacy catalogue recovery', 'three free trial services with correct posters, scope and reference values', 'old trial content migrates without resetting stock or history', 'admin reference value and scope survive restart', 'ordinary member claim', 'claim quota and one-time limit', 'no purchase/payment required', 'per-project booking', 'ownership validation', 'duplicate and capacity validation', 'admin appointment visibility', 'cancel and rebook', 'completion cannot be reused', 'stock and operator changes survive restart', 'previous price, order and cover changes preserved', 'admin per-store address configuration', 'independent capacity for two stores', 'order store cannot be swapped', 'disabled store rejects new bookings', 'store snapshots survive deletion'] }));
+  console.log(JSON.stringify({ ok: true, checks: ['legacy catalogue recovery', 'three free trial services with correct posters, scope and reference values', 'old trial content migrates without resetting stock or history', 'admin reference value and scope survive restart', 'ordinary member claim', 'single-item selection and shared three-use quota', 'no purchase/payment required', 'per-project booking', 'ownership validation', 'duplicate and capacity validation', 'admin appointment visibility', 'cancel and rebook', 'total quota exhausted after three completed appointments', 'stock and operator changes survive restart', 'previous price, order and cover changes preserved', 'admin per-store address configuration', 'independent capacity for two stores', 'order store cannot be swapped', 'disabled store rejects new bookings', 'store snapshots survive deletion'] }));
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => { await stop(); fs.rmSync(temp, { recursive: true, force: true }); });

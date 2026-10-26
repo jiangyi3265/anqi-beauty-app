@@ -1,0 +1,73 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const os=require('node:os');
+const path=require('node:path');
+const net=require('node:net');
+const {spawn}=require('node:child_process');
+const {once}=require('node:events');
+const seed=require('../server/seed.cjs');
+const crypto=require('node:crypto');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'xiurong-shareholder-flow-'));
+const file=path.join(temp,'db.json'),secret=crypto.randomUUID();
+let server,base;
+async function req(url,method='GET',body,token,admin=false,status=200){
+ const r=await fetch(base+url,{method,headers:{'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{}),...(admin?{'x-anqi-internal':secret}:{})},body:body===undefined?undefined:JSON.stringify(body)});
+ const data=await r.json();assert.equal(r.status,status,url+' '+JSON.stringify(data));return data;
+}
+async function start(){const socket=net.createServer().listen(0,'127.0.0.1');await once(socket,'listening');const port=socket.address().port;await new Promise(r=>socket.close(r));base='http://127.0.0.1:'+port+'/api';server=spawn(process.execPath,['server/index.cjs'],{cwd:path.resolve(__dirname,'..'),env:{...process.env,DATA_FILE:file,DB_NAME:'',HOST:'127.0.0.1',PORT:String(port),NODE_ENV:'test',WECHAT_MOCK:'true',DEMO_MODE:'false',ADMIN_PASSWORD:secret,INTERNAL_SECRET:secret,PAYMENT_MODE:'off',WECHAT_TRANSFER_ENABLED:'false'},stdio:['ignore','ignore','pipe']});let errors='';server.stderr.on('data',d=>errors+=d);for(let i=0;i<100;i++){if(server.exitCode!==null)throw Error(errors);try{await req('/health');return}catch{}await new Promise(r=>setTimeout(r,50))}throw Error('server timeout '+errors)}
+(async()=>{
+ const db=seed(),now=Date.now();
+ db.config._trialDeviceCatalogV2=true;
+ const users=['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222'];
+ db.users=users.map((id,i)=>({id,name:'测试'+i,openid:'mock-'+id,points:5000,createdAt:new Date(now).toISOString()}));
+ db.sessions=users.map((userId,i)=>({id:'test-token-'+i,userId,role:'user',expires:now+3600000}));
+ db.products.push(...[1,2,3,4].map(i=>({id:'trial-test-'+i,name:'测试体验'+i,kind:'service',trial:true,trialOnly:true,enabled:true,status:'published',stock:10,price:100})),{id:'paid-test',name:'普通服务',kind:'service',enabled:true,status:'published',stock:10,price:100});
+ db.orders.push({id:'proof',userId:users[0],number:'proof',productId:'paid-test',product:{name:'普通服务'},paymentStatus:'paid',status:'ready',paidAt:new Date(now-10000).toISOString(),createdAt:new Date(now-10000).toISOString(),total:100});
+ db.config.poolReward={enabled:false};
+ fs.writeFileSync(file,JSON.stringify(db));await start();
+ const a='test-token-0',b='test-token-1';
+ await req('/admin/shareholders','GET',undefined,a,false,403);
+ await req('/admin/shareholders/program','POST',{enabled:true,revision:0,settleTime:'23:59',plans:[{id:'one',name:'分配方案',units:1,enabled:true}]},null,true);
+ assert.equal((await req('/share-code','GET',undefined,a)).locked,true);
+ await req('/admin/shareholders/member','POST',{userId:users[0],approved:true,planId:'one',orderId:'proof',revision:0},null,true);
+ assert.equal((await req('/me','GET',undefined,a)).canShare,true);
+ const adminMembers=await req('/admin/legacyMembers','GET',undefined,null,true);
+ assert.equal(adminMembers.members.find(m=>m.id===users[0]).canShare,true);
+ assert.equal(adminMembers.members.find(m=>m.id===users[1]).canShare,false);
+ const code=await req('/share-code','GET',undefined,a);assert.equal(code.code,'11111111');
+ const bound=await req('/invite/bind','POST',{invite:'11111111'},b);assert.equal(bound.status,'bound');
+ assert.equal(bound.user.inviterId,users[0]);
+ const me=await req('/me','GET',undefined,a);assert.equal(me.points,5000);assert.equal(me.vipLevel,null);
+ const today=new Date(now+8*3600000).toISOString().slice(0,10);
+ await req('/admin/shareholders/pool','POST',{date:today,amount:7000,revision:0},null,true);
+ assert.equal((await req('/bootstrap')).dailyPool.amount,7000);
+ assert.equal((await req('/earnings-summary','GET',undefined,a)).dailyPool.personalAmount,7000);
+ assert.equal((await req('/earnings-summary','GET',undefined,b)).dailyPool.personalAmount,0);
+ const store=(await req('/bootstrap')).stores[0];
+ const dates=Array.from({length:4},(_,i)=>new Date(now+8*3600000+(i+2)*86400000).toISOString().slice(0,10));
+ const bookings=[];
+ for(let i=1;i<=3;i++){
+  const claim=await req('/claims','POST',{type:'trial',productIds:['trial-test-'+i]},b);
+  const ap=await req('/appointments','POST',{claimId:claim.id,productId:'trial-test-'+i,storeId:store.id,date:dates[i-1],time:'10:00'},b);
+  bookings.push(ap);
+ }
+ assert.equal((await req('/me','GET',undefined,b)).trialQuota.remaining,0);
+ await req('/claims','POST',{type:'trial',productIds:['trial-test-4']},b,false,400);
+ await req('/admin/appointments/'+bookings[0].id,'PUT',{status:'cancelled'},null,true);
+ assert.equal((await req('/me','GET',undefined,b)).trialQuota.remaining,1);
+ await req('/admin/appointments/'+bookings[1].id,'PUT',{status:'completed'},null,true);
+ assert.equal((await req('/me','GET',undefined,b)).trialQuota.used,1);
+ const fourth=await req('/claims','POST',{type:'trial',productIds:['trial-test-4']},b);
+ const outcomes=await Promise.all([1,2].map(()=>fetch(base+'/appointments',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+b},body:JSON.stringify({claimId:fourth.id,productId:'trial-test-4',storeId:store.id,date:dates[3],time:'10:00'})}).then(r=>r.status)));
+ assert.deepEqual(outcomes.sort(),[200,400]);
+ const order=await req('/orders','POST',{productId:'paid-test',spec:'single',quantity:1,storeId:store.id,paymentChoice:'offline'},b);
+ assert.equal(order.paymentChoice,'offline');
+ await req('/admin/orders/'+order.id,'POST',{action:'confirmPayment',note:'隔离测试凭证'},null,true);
+ await req('/admin/orders/'+order.id,'POST',{action:'confirmPayment',note:'重复'},null,true,400);
+ const state=JSON.parse(fs.readFileSync(file));assert.equal(state.users[0].points,5000);assert.equal(state.orders.find(o=>o.id==='proof').total,100);
+ const stopped=once(server,'exit');server.kill();await stopped;await start();
+ assert.equal((await req('/me','GET',undefined,a)).canShare,true);
+ assert.equal((await req('/me','GET',undefined,b)).trialQuota.used,1);
+ assert.equal((await req('/admin/shareholders','GET',undefined,null,true)).today.amount,7000);
+ console.log('PASS: certification/share binding, independent points & membership, one-project trial bookings, total quota/concurrent limit/cancellation, offline payment/idempotency; isolated data only');
+})().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{if(server&&server.exitCode===null){const done=once(server,'exit');server.kill();await done}});

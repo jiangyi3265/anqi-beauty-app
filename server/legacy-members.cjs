@@ -1,3 +1,4 @@
+const shareholders = require('./shareholders.cjs');
 const crypto = require('node:crypto');
 const vip = require('./vip-packages.cjs');
 const income = require('./income.cjs');
@@ -19,7 +20,7 @@ function profile(db,b,self) {
  const seen=new Set(self?[self]:[]);let next=inviterId;
  while(next){if(seen.has(next))fail('推荐关系不能形成循环');seen.add(next);const parent=active(db,next);if(parent.disabled)fail('推荐人已停用');next=parent.inviterId;}
  // 只有超级VIP会员才能当推荐人；以前已经登记的推荐人不变时照常保存
- if(inviterId&&inviterId!==(self?active(db,self).inviterId||'':'')&&!superVip(db,inviterId))fail('直接推荐人必须是超级VIP会员（持有VIP套餐卡）');
+ if(inviterId&&inviterId!==(self?active(db,self).inviterId||'':'')&&!((shareholders.enabled(db)||!!shareholders.rule(db).activatedAt)?shareholders.eligible(db,active(db,inviterId))&&active(db,inviterId).incomeAccess?.dynamic!==false:superVip(db,inviterId)))fail((shareholders.enabled(db)||!!shareholders.rule(db).activatedAt)?'直接推荐人须为已认证且有分享资格的股东':'直接推荐人必须是超级VIP会员（持有VIP套餐卡）');
  return {name,phone,adminNote:note,invited:b.invited,disabled:b.disabled,inviterId,incomeAccess:access(b.incomeAccess)};
 }
 function audit(db,actor,action,target,details) {db.audit||=[];db.audit.unshift({id:crypto.randomUUID(),actor,resource:'legacyMembers',method:action,target,details,createdAt:new Date().toISOString()});}
@@ -59,11 +60,16 @@ function manage(db,method,key,b,actor) {
   if(typeof used!=='object'||Array.isArray(used)||Object.keys(used).some(id=>!pack.services.some(s=>s.id===id)))fail('已使用次数包含无效项目');
   for(const s of pack.services){const n=used[s.id]??0;if(!Number.isInteger(n)||n<0||n>s.total)fail(s.name+'已使用次数无效');s.used=n;}
   if(b.incomeTreatment==='apply'&&pack.services.some(s=>s.used>0))fail('已使用套餐应按历史订单录入');
+  if(b.incomeTreatment==='apply'&&(!Number.isInteger(p.stock)||p.stock<1))fail('套餐库存不足，请先补货再办理');
   // Close earlier periods before importing historical facts. Do not reopen old settlements.
   income.settle(db);
-  const at=new Date(now).toISOString(),o={id:crypto.randomUUID(),number:'OFF'+now+crypto.randomInt(100,999),userId:u.id,productId:p.id,product:clone(p),package:pack,quantity:1,spec:'single',skuId:'',price:b.total,total:b.total,storeId:store.id,store:Object.fromEntries(['id','name','address','contact','phone','hours'].map(k=>[k,store[k]||''])),status:pack.services.every(s=>s.used===s.total)?'completed':'ready',paymentStatus:'paid',paymentMode:'offline',paymentNote:note,paidAt:new Date(paid).toISOString(),createdAt:at,refundStatus:'',address:null,message:'门店补录线下套餐',source:'offlineImport',inventoryReserved:false,offlineReference:reference,offlineRequestId:rid,offlineFingerprint:hash,incomeTreatment:b.incomeTreatment};
+  const at=new Date(now).toISOString(),o={id:crypto.randomUUID(),number:'OFF'+now+crypto.randomInt(100,999),userId:u.id,productId:p.id,product:clone(p),package:pack,quantity:1,spec:'single',skuId:'',price:b.total,total:b.total,storeId:store.id,store:Object.fromEntries(['id','name','address','contact','phone','hours'].map(k=>[k,store[k]||''])),status:pack.services.every(s=>s.used===s.total)?'completed':'ready',paymentStatus:'paid',paymentMode:'offline',paymentNote:note,paidAt:new Date(paid).toISOString(),createdAt:at,refundStatus:'',address:null,message:'门店补录线下套餐',source:'offlineImport',inventoryReserved:b.incomeTreatment==='apply',offlineReference:reference,offlineRequestId:rid,offlineFingerprint:hash,incomeTreatment:b.incomeTreatment};
   if(o.status==='completed')o.completedAt=at;
-  if(b.incomeTreatment==='apply')income.snapshot(db,o);
+  if(b.incomeTreatment==='apply'){
+   o.referrerIdAtOrder=u.inviterId||'';
+   income.snapshot(db,o);
+  }
+  if(o.inventoryReserved){p.stock--;p.sold=(p.sold||0)+1;}
   db.orders.unshift(o);income.activate(db,o);income.settle(db);audit(db,actor,'GRANT',u.id,{orderId:o.id,total:o.total,paidAt:o.paidAt,incomeTreatment:o.incomeTreatment,note});return o;
  }
  if(b.action==='bind') {

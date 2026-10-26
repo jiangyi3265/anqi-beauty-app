@@ -70,6 +70,12 @@ const verifyPaySign = p => crypto.createVerify('RSA-SHA256').update(`${p.appId}\
   const buyer = await req('/auth/wechat', 'POST', { code: buyerCode, invite: inviter.user.id.slice(0, 8) });
   checks.push('业务服务和小程序启动参数均显示已开通微信支付');
 
+  const offlineChoice = await order(service, buyer.token, { paymentChoice: 'offline' });
+  await pay(offlineChoice, buyer.token, 400);
+  assert.equal(sim.count('POST', '/v3/pay/transactions/jsapi'), 0);
+  await req('/orders/' + offlineChoice.id + '/cancel', 'POST', {}, buyer.token);
+  checks.push('即使在线支付已启用，明确选择门店收银的订单也不会创建微信预支付单；仍可正常取消');
+
   // 1. 下单 → 预支付 → 调起参数
   const stockBefore = (await req('/bootstrap')).products.find(p => p.id === service.id).stock;
   const o1 = await order(service, buyer.token);
@@ -165,7 +171,7 @@ const verifyPaySign = p => crypto.createVerify('RSA-SHA256').update(`${p.appId}\
   const refundsBefore = sim.count('POST', '/v3/refund/domestic/refunds');
   await admin('orders/' + o7.id, 'POST', { action: 'refund', note: '测试' }, 400);
   assert.equal(sim.count('POST', '/v3/refund/domestic/refunds'), refundsBefore);
-  await admin('orders/' + o5.id, 'POST', { action: 'refund', note: '线下退现金' });
+  await admin('orders/' + o5.id, 'POST', { action: 'refund', note: '线下退现金', refundConfirmed:true, refundAmount:o5.total, refundedAt:new Date().toISOString(), refundMethod:'隔离测试', refundReference:'test-'+o5.id });
   assert.equal(sim.count('POST', '/v3/refund/domestic/refunds'), refundsBefore);
   checks.push('套餐已有核销记录时在调用微信前拒绝退款；线下收款的订单退款不经过微信');
 

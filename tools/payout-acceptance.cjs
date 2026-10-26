@@ -9,7 +9,7 @@ const credit=(db,userId,cents,extra={})=>db.earnings.push({id:rid(),userId,type:
 (function unit(){
   const db={users:[{id:'a',name:'甲'},{id:'b',name:'乙'},{id:'old',mergedInto:'a'}],earnings:[],audit:[]};income.init(db);
   credit(db,'a',54800);credit(db,'a',-4980,{kind:'reversal'});credit(db,'b',1000);
-  assert.deepEqual(income.balanceOf(db,'a'),{earnedCents:49820,paidOutCents:0,availableCents:49820});
+  assert.deepEqual(income.balanceOf(db,'a'),{earnedCents:49820,paidOutCents:0,reservedCents:0,availableCents:49820});
   const pay=(o={})=>income.managePayout(db,{action:'payout',userId:'a',amount:300,method:'wechat',note:'微信转账',confirmed:true,requestId:rid(),...o},'店长');
   const first=pay({requestId:'req-00000001'});
   assert.equal(first.amountCents,30000);assert.equal(first.status,'paid');assert.equal(first.actor,'店长');

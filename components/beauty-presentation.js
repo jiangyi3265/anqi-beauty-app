@@ -5,6 +5,7 @@ import UiIcon from './UiIcon.vue'
 import ProductVisual from './ProductVisual.vue'
 import EmptyState from './EmptyState.vue'
 import {requestServiceSubscriptions} from '../common/subscriptions.js'
+import {requireInviteBinding} from '../common/invite.js'
 
 const pageTitles = {
   mall: '商城', discover: '发现', product: '项目详情', stores: '选择门店',
@@ -39,19 +40,19 @@ export default function decorateScreen(base) {
       ...base.computed,
       brandName(){return this.config.name||BRAND_NAME},
       ui(){return { ...UI_ASSETS,room:this.config.homeImage||UI_ASSETS.room,silk:this.config.themeImage||UI_ASSETS.silk,portrait:this.config.mallBanner||UI_ASSETS.portrait,booking:this.config.bookingImage||this.config.homeImage||UI_ASSETS.room,alliance:this.config.allianceImage||this.config.themeImage||UI_ASSETS.silk }},
-      memberEntries(){return this.allMemberEntries.filter(entry=>entry.page!=='share'||this.config.marketingEnabled!==false)},
+      memberEntries(){return this.allMemberEntries.filter(entry=>entry.page!=='share'||(this.config.marketingEnabled!==false&&(!this.shareholderMode||this.shareAllowed)))},
       quickEntries(){return [
         {label:this.config.shortcutTrialLabel||'体验卡',page:'gifts',query:'?type=trial',icon:'ticket'},
         {label:this.config.shortcutVipLabel||'贵宾卡',page:'gifts',query:'?type=vip',icon:'crown'},
         {label:this.config.shortcutShareLabel||'邀请码',page:'share',icon:'code'},
         {label:this.config.shortcutAppointmentLabel||'立即预约',page:'appointments',icon:'calendar'}
-      ].filter(entry=>entry.page!=='share'||this.config.marketingEnabled!==false)},
+      ].filter(entry=>entry.page!=='share'||(this.config.marketingEnabled!==false&&(!this.shareholderMode||this.shareAllowed)))},
       selectedVisualProduct(){const image=this.selectedSku?.image;return image?{...this.product,image,visualMode:'image'}:this.product},
       homeBanners(){return this.homeModules.filter(m=>m.type==='banner')},
       homeContentModules(){return this.homeModules.filter(m=>m.type!=='banner')},
 
       title() {
-        if (this.page === 'gifts') { const cn = n => n >= 1 && n <= 10 ? '一二三四五六七八九十'[n - 1] : String(n); return this.giftType === 'vip' ? '贵宾卡' + cn(this.giftProducts.length || 10) + '选' + cn(this.maxGiftCount) : cn(this.maxGiftCount) + '项体验卡' }
+        if (this.page === 'gifts') { const cn = n => n >= 1 && n <= 10 ? '一二三四五六七八九十'[n - 1] : String(n); return this.giftType === 'vip' ? '贵宾卡' + cn(this.giftProducts.length || 10) + '选' + cn(this.maxGiftCount) : this.me.trialQuota?.legacy ? cn(this.maxGiftCount) + '项体验卡' : '体验预约' }
         if (this.page === 'legal') return this.legalTitle
         if (this.page === 'stores' && this.displayStore) return shortStoreName(this.displayStore)
         if (this.page === 'booking' && this.bookingResult) return '预约结果'
@@ -117,14 +118,51 @@ export default function decorateScreen(base) {
       ...base.methods,
       price: formatPrice,
       open(page,query=''){if(page==='share'&&this.config.marketingEnabled===false)return toast('门店暂未开放邀请分享');return go(page,query)},
-      async createOrder(){if(this.subscriptionPending||this.busy)return;this.subscriptionPending=true;try{await requestServiceSubscriptions(this.config,['orderPaid','orderShipped'])}finally{this.subscriptionPending=false}return base.methods.createOrder.call(this)},
+      async createOrder(){
+        if (this.subscriptionPending || this.busy) return
+        this.subscriptionPending = true
+        try{
+          // 订单创建时固定推荐关系，先处理扫码带来的待绑定邀请码。
+          try { await this.bindPendingInvite() }
+          catch (error) {
+            if (error.inviteStatus) uni.removeStorageSync('invite')
+            return toast(error.inviteStatus ? error.message + '，本次未下单' : '推荐人绑定失败，请刷新后重试')
+          }
+          await requestServiceSubscriptions(this.config, ['orderPaid','orderShipped'])
+        } finally { this.subscriptionPending = false }
+        return base.methods.createOrder.call(this)
+      },
+
+      async bindPendingInvite(){
+        const invite = uni.getStorageSync('invite')
+        if (!this.me.id || !invite) return
+        const result = await api('/invite/bind', 'POST', { invite })
+        this.me = { ...this.me, ...result.user }
+        requireInviteBinding(result.status)
+        uni.removeStorageSync('invite')
+        if (result.status === 'bound') toast('已自动绑定推荐人')
+      },
 
       shortStore: shortStoreName,
       storeName: brandedStoreName,
       async refresh() {
         const selected = this.selectedStoreId
         await base.methods.refresh.call(this)
-        if(!this.error){uni.setNavigationBarTitle({title:this.isTab?this.brandName:this.title});if(this.nativeDevice){const pagePublic=['home','mall','discover','product','stores','activities','alliances'].includes(this.page);if(this.config.marketingEnabled!==false&&pagePublic)uni.showShareMenu({menus:['shareAppMessage','shareTimeline'],fail(){}});else uni.hideShareMenu({menus:['shareAppMessage','shareTimeline'],fail(){}})}}
+        if (this.me.id && uni.getStorageSync('invite') && !this.error) {
+          this.loading = true
+          try {
+            await this.bindPendingInvite()
+          } catch (error) {
+            if (error.inviteStatus) toast(error.message)
+            else {
+              this.error = '推荐人绑定失败，请下拉刷新重试'
+              return
+            }
+          } finally {
+            this.loading = false
+          }
+        }
+        if(!this.error){uni.setNavigationBarTitle({title:this.isTab?this.brandName:this.title});if(this.nativeDevice){const pagePublic=['home','mall','discover','product','stores','activities','alliances'].includes(this.page);if(this.config.marketingEnabled!==false&&pagePublic&&(!this.shareholderMode||this.shareAllowed))uni.showShareMenu({menus:['shareAppMessage','shareTimeline'],fail(){}});else uni.hideShareMenu({menus:['shareAppMessage','shareTimeline'],fail(){}})}}
         if (this.page === 'mall' && !this.mallCategories.some(row => row.id === this.mallCategory)) this.mallCategory = this.mallCategories[0]?.id || 'all'
         if (!selected) {
           const saved = uni.getStorageSync('xiurong-preferred-store')
@@ -157,7 +195,11 @@ export default function decorateScreen(base) {
         else go('activities')
       },
       showGiftType(type) { uni.redirectTo({url:'/pages/gifts/index?type=' + type}) },
-      giftStatus(product) { return product.useStatus === 'completed' ? '已使用' : product.useStatus === 'booked' ? '已预约' : product.kind === 'service' ? '待预约' : '待领取' },
+      giftStatus(product) {
+        if (product.useStatus === 'completed') return product.kind === 'goods' ? '已领取' : '已使用'
+        if (product.useStatus === 'booked') return '已预约'
+        return product.kind === 'service' ? '待预约' : '待领取'
+      },
       giftStatusClass(product) { return product.useStatus === 'completed' ? 'muted' : product.useStatus === 'booked' ? 'rose' : 'amber' },
       bookedCount(order, item) { return (this.rows || []).filter(row => row.orderId === order?.id && row.entitlementId === item.id && row.status === 'booked').length },
       orderSpec(order) { return order.package?.planName || order.product?.selectedSku?.name || (order.spec === 'course' ? '1疗程' : order.product?.kind === 'goods' ? '1件' : '单次 · 1次') },
@@ -179,6 +221,13 @@ export default function decorateScreen(base) {
           this.orderToCancel = null
           toast('订单已取消')
           await this.refresh()
+        })
+      },
+      selectTrial(product) {
+        if(!this.me.id)return go('login')
+        return this.run(async()=>{
+          const row=await api('/claims','POST',{type:'trial',productIds:[product.id]})
+          go('booking','?claimId='+row.id+'&productId='+product.id)
         })
       },
       claim() {

@@ -75,7 +75,7 @@ async function stop(){if(child&&child.exitCode===null){const done=once(child,'ex
   const me=await req('/auth/wechat','POST',{code:'card-me-'+Date.now()});
   await makeSuperVip(admin,me.user.id,'card1');
   const friend=await req('/auth/wechat','POST',{code:'card-friend-'+Date.now(),invite:me.user.id.slice(0,8)});
-  const card1=(await admin('orders')).find(o=>o.userId===me.user.id&&o.product?.packagePlans?.length);await admin('orders/'+card1.id,'POST',{action:'refund',note:'推荐人退卡'});
+  const card1=(await admin('orders')).find(o=>o.userId===me.user.id&&o.product?.packagePlans?.length);await admin('orders/'+card1.id,'POST',{action:'refund',note:'推荐人退卡',refundConfirmed:true,refundAmount:card1.total,refundedAt:new Date().toISOString(),refundMethod:'隔离测试',refundReference:'test-'+card1.id});
   assert.equal((await req('/me','GET',undefined,me.token)).vipLevel,null);
   const o1=await req('/orders','POST',{productId:kit.id,quantity:1,spec:'single',storeId:store},friend.token);
   await admin('orders/'+o1.id,'POST',{action:'confirmPayment',note:'推荐人已退卡'});

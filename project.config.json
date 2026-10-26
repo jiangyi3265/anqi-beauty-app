@@ -1,0 +1,22 @@
+{
+  "description": "秀荣科技美肤微信小程序",
+  "appid": "wx1e9453a0ddc8385d",
+  "projectname": "秀荣科技美肤",
+  "compileType": "miniprogram",
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "postcss": false,
+    "minified": false,
+    "newFeature": true,
+    "bigPackageSizeSupport": true
+  },
+  "packOptions": {
+    "ignore": [
+      { "type": "folder", "value": "static/brand" },
+      { "type": "folder", "value": "static/uploads" },
+      { "type": "folder", "value": "static/assets" },
+      { "type": "file", "value": "static/reference/share-background-clean.png" }
+    ]
+  }
+}

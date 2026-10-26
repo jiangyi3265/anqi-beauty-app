@@ -22,8 +22,9 @@ function shareDetails(screen) {
   const name=screen?.config?.name||'秀荣科技美肤'
   const storeTitle=name+' · 美容用品商城'
   const page = screen?.page || 'home'
-  // 只有超级VIP会员（有会员等级）转发出去的链接才带邀请码；其他会员转发不建立推荐关系
-  const invite = screen?.config?.marketingEnabled===false||!screen?.me?.vipLevel?'':screen?.inviteCode || ''
+  // 分享链接与专属码使用同一资格；未切换股东规则时兼容原 VIP 规则。
+  const allowed = screen?.shareAllowed ?? screen?.me?.canShare ?? (!screen?.config?.shareholderProgram?.activatedAt && !!screen?.me?.vipLevel)
+  const invite = screen?.config?.marketingEnabled === false || !allowed ? '' : screen?.inviteCode || ''
   if (page === 'share') return { title: '邀请你来'+name, page: 'home', query: { invite } }
   if (!isPublic(page, screen)) return { title: storeTitle, page: 'home', query: { invite } }
   if (page === 'product') {

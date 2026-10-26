@@ -235,7 +235,13 @@ async function request(route, method = 'GET', body, token, expected = 200, admin
   await admin('/orders/'+refundable.id,'POST',{action:'confirmPayment',note:'隔离验收收款'});
   const pendingBooking=await request('/appointments','POST',booking(refundable.package.services[0].id,refundable.id),alice.token);
   const beforeStock=(await admin('/products','GET')).find(p=>p.id===refundable.productId).stock;
-  await admin('/orders/'+refundable.id,'POST',{action:'refund',note:'未使用全额退'});
+  await admin('/orders/'+refundable.id,'POST',{action:'refund',note:'尚未实际退款'},400);
+  const proof={action:'refund',note:'未使用全额退',refundConfirmed:true,refundAmount:refundable.total,refundedAt:new Date().toISOString(),refundMethod:'隔离测试',refundReference:'test-'+refundable.id};
+  await admin('/orders/'+refundable.id,'POST',{...proof,refundAmount:refundable.total-1},400);
+  await admin('/orders/'+refundable.id,'POST',{...proof,refundedAt:new Date(Date.now()+3600000).toISOString()},400);
+  assert.equal((await request('/orders/'+refundable.id,'GET',undefined,alice.token)).status,'ready');
+  await admin('/orders/'+refundable.id,'POST',proof);
+  assert.equal((await request('/orders/'+refundable.id,'GET',undefined,alice.token)).refundReference,undefined);
   assert.equal((await request('/appointments','GET',undefined,alice.token)).find(a=>a.id===pendingBooking.id).status,'cancelled');
   await admin('/appointments/'+pendingBooking.id,'PUT',{status:'completed'},400);
   assert.equal((await admin('/products','GET')).find(p=>p.id===refundable.productId).stock,beforeStock+1);

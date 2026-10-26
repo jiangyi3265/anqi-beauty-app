@@ -8,6 +8,9 @@ const wechat = require('./wechat-login.cjs');
 const vipPackages = require('./vip-packages.cjs');
 const staffScheduling = require('./staff-scheduling.cjs');
 const income = require('./income.cjs');
+const shareholders = require('./shareholders.cjs');
+const trialQuota = require('./trial-quota.cjs');
+const transfers = require('./shareholder-transfers.cjs');
 const legacyMembers = require('./legacy-members.cjs');
 const presentation = require('./presentation-config.cjs');
 const notifications = require('./notifications.cjs');
@@ -25,9 +28,12 @@ const paymentModeName = () => MOCK_PAYMENT ? 'mock' : WECHAT_PAY ? 'wechat' : 'o
 const HOST = process.env.HOST || '127.0.0.1';
 const sessions = new Map();
 let mysqlStore;
-// 会员等级：本人已付款、未退款、未取消的 VIP 套餐中价格最高的一档；没有则为空。有等级即“超级VIP会员”：才有专属二维码、才能推荐别人
+// 会员等级：本人已付款、未退款、未取消的 VIP 套餐中价格最高的一档；没有则为空。分享资格在 canShare 中单独判断
 function vipLevel(u){const held=db.orders.filter(o=>o.userId===u.id&&o.product?.packagePlans?.length&&o.paymentStatus==='paid'&&o.refundStatus!=='refunded'&&!['cancelled','pending','aftersale'].includes(o.status));if(!held.length)return null;const top=held.reduce((a,o)=>Number(o.product.memberPrice??o.product.price)>Number(a.product.memberPrice??a.product.price)?o:a);const name=String(top.product.name||'VIP').replace(/套餐$/,'');return {name:name.endsWith('会员')?name:name+'会员',productId:top.productId,orderId:top.id}}
+const canShare = u => (shareholders.enabled(db)||shareholders.rule(db).activatedAt) ? shareholders.eligible(db,u) && u.incomeAccess?.dynamic !== false : !!vipLevel(u);
 const publicUser=u=>({...Object.fromEntries(Object.entries(u).filter(([k])=>!['openid','unionid','session_key','wechatAppId','wechatLoginCodes','password','salt','hash','subscriptionCredits','adminNote','offlineRequestId','offlineFingerprint'].includes(k))),wechatBound:!!u.openid});
+const publicOrder = ({ referrerIdAtOrder, refundMethod, refundReference, refundRecordedAt, ...order }) => order;
+const publicRedemption = ({ deliveryNote, deliveryActor, ...redemption }) => redemption;
 const internal=req=>process.env.INTERNAL_SECRET && req.headers['x-anqi-internal']===process.env.INTERNAL_SECRET;
 const attempts = new Map();
 const configDefaults = { name: '暨美丽', version: '1.0.9', appointmentCapacity: 1, appointmentTimes: '09:00,10:00,11:00,14:00,15:00,16:00,17:00,18:00', shortcutTrialLabel: '体验卡', shortcutVipLabel: '贵宾卡', shortcutShareLabel: '邀请码', homeImage: '/static/brand/hero-middle.jpg', heroTop: '/static/brand/hero-top-jimeili-v2.jpg', heroBottom: '/static/brand/hero-bottom-v2.jpg', storeDefaultImage: '/static/brand/store-cover-jimeili-v2.jpg', brandLogo: '/static/brand/logo-jimeili.png', welcome: '/static/assets/service-heading.jpg', hero: '/static/brand/jimeili-1-steamed-face.jpg', brand: '/static/brand/brand-jimeili.png', projectPromo: '/static/assets/service-heading.jpg', storePromo: '/static/brand/store-cover-jimeili-v2.jpg', customerQr: '', pointsBanner: '/static/assets/points-banner.jpg', serviceHeading: '/static/assets/service-heading.jpg', productHeading: '/static/assets/product-heading.jpg', signPoints: 1, maxGifts: 3, trialPick: 3, trialUses: 1, pointsRules: '每日可签到一次，签到获得1积分。积分可用于兑换后台已上架的积分商品。', subscriptionEnabled: true, messageReminderEnabled: true, marketingEnabled: true, agreement: '本协议说明您使用暨美丽小程序时的服务规则。您在注册、登录、下单、预约、领取礼品前，请核对商品、价格、库存、门店、数量和联系方式。您应遵守法律法规及平台规则，不得从事违法、欺诈、骚扰或损害他人权益的行为。订单、预约、礼品和售后以小程序及后台实时记录为准。如有疑问，请通过客服或门店渠道咨询。经营方会在法律允许范围内调整服务规则，并在小程序内公布调整内容。', privacy: '本隐私政策说明暨美丽在提供微信登录、商品购买、门店预约、订单履约、礼品领取和客服服务时的信息处理方式。我们仅在实现相应功能所必需的范围内处理微信身份标识、昵称头像、联系方式、收货地址、订单、预约和设备运行信息，不会向前端展示微信密钥或会话密钥。您可以通过个人中心、客服或门店渠道咨询、更正或删除相关信息。政策发生重大变化时，我们会在小程序内提示。正式上线前请经营方根据实际主体和业务完成审核。' };
@@ -43,6 +49,7 @@ db.inventory ||= [];
 db.rewards ||= [];
 db.ledger ||= [];
 db.redemptions ||= [];
+db.shares ||= [];
 staffScheduling.initialize(db);
 income.init(db);
 notifications.init(db);
@@ -61,9 +68,53 @@ function token(userId, role = 'user') { const t = crypto.randomBytes(32).toStrin
 function session(req, admin = false) { if(admin && internal(req))return {role:"admin",userId:"admin"}; const s = sessions.get((req.headers.authorization || '').replace(/^Bearer /, '')); if (!s || s.expires < Date.now()) fail('请先登录', 401); if (admin && s.role !== 'admin') fail('无管理权限', 403); return s; }
 function user(req) { const s = session(req); const u = db.users.find(u => u.id === s.userId && !u.disabled); if (!u) fail('用户不存在', 401); return u; }
 function own(collection, key, u) { const item = db[collection].find(x => x.id === key && x.userId === u.id); if (!item) fail('记录不存在', 404); return item; }
+function bindInvite(member, value) {
+  const code = typeof value === 'string' ? value.trim().toUpperCase() : '';
+  if (!/^[0-9A-F]{8}$/.test(code)) return { status: 'invalid' };
+  if (member.inviterId) return { status: member.inviterId.slice(0, 8).toUpperCase() === code ? 'alreadyBound' : 'hasInviter' };
+  const inviter = db.users.find(u => !u.disabled && !u.mergedInto && u.id !== member.id && u.id.slice(0, 8).toUpperCase() === code);
+  if (!inviter || !canShare(inviter)) return { status: 'invalid' };
+  const seen = new Set();
+  for (let current = inviter; current; current = db.users.find(u => u.id === current.inviterId)) {
+    if (current.id === member.id || seen.has(current.id)) return { status: 'invalid' };
+    seen.add(current.id);
+  }
+  member.inviterId = inviter.id;
+  member.invited = true;
+  member.memberRevision = (member.memberRevision || 0) + 1;
+  db.shares.push({ id: id(), userId: inviter.id, memberId: member.id, name: member.name, source: 'invite', createdAt: new Date().toISOString() });
+  return { status: 'bound' };
+}
 function expire() { let changed = false; for (const o of db.orders) if (o.status === 'pending' && !o.wechatPay?.prepayId && Date.now() - Date.parse(o.createdAt) >= 7200000) { o.status = 'cancelled'; restore(o); changed = true; } if (changed) save(); }
 function take(o) { if(o.inventoryReserved===false)return; const p = db.products.find(p => p.id === o.productId); if (!p) return; const sku=p.skus?.find(s => s.id===o.skuId); if (sku) sku.stock -= o.quantity; p.stock = p.skus?.length ? p.skus.filter(s=>s.enabled!==false).reduce((n,s)=>n+s.stock,0) : p.stock - o.quantity; }
 function restore(o) { if(o.inventoryReserved===false)return; const p = db.products.find(p => p.id === o.productId); if (!p) return; const sku=p.skus?.find(s => s.id===o.skuId); if (sku) sku.stock += o.quantity; p.stock = p.skus?.length ? p.skus.filter(s=>s.enabled!==false).reduce((n,s)=>n+s.stock,0) : p.stock + o.quantity; }
+function claimProducts(claim) {
+  return (claim.productIds || []).map(productId => {
+    const product = (claim.products || []).find(p => p.id === productId) || db.products.find(p => p.id === productId);
+    if (!product) return null;
+    if (product.kind === 'goods') {
+      const delivered = claim.status === 'completed' || !!claim.deliveries?.[productId];
+      return { ...product, useStatus: delivered ? 'completed' : 'available', usesTotal: 1, usesCompleted: Number(delivered), usesRemaining: Number(!delivered) };
+    }
+    const bookings = db.appointments.filter(a => a.claimId === claim.id && a.productId === productId && a.status !== 'cancelled');
+    const active = bookings.find(a => a.status === 'booked');
+    const usesTotal = claim.uses || 1;
+    const usesCompleted = bookings.filter(a => a.status === 'completed').length;
+    const usesRemaining = claim.flexibleTrial ? trialQuota.summary(db,claim.userId).remaining : claim.status === 'completed' ? 0 : Math.max(0, usesTotal - usesCompleted);
+    return { ...product, useStatus: active ? 'booked' : usesRemaining ? 'available' : 'completed', bookingId: (active || bookings.at(-1))?.id || '', usesTotal, usesCompleted, usesRemaining };
+  }).filter(Boolean);
+}
+function claimView(claim) { return { ...claim, products: claimProducts(claim) }; }
+function publicClaim(claim) { const { deliveries, ...view } = claimView(claim); return view; }
+function finishClaim(claim) {
+  if (claim.status === 'completed') return;
+  if(claim.flexibleTrial){if(trialQuota.summary(db,claim.userId).used>=3){claim.status='completed';claim.completedAt=new Date().toISOString();}return;}
+  const products = claimProducts(claim);
+  if (products.length === claim.productIds?.length && products.every(p => p.usesRemaining === 0)) {
+    claim.status = 'completed';
+    claim.completedAt = new Date().toISOString();
+  }
+}
 async function body(req) { let buffer = ''; for await (const b of req) { buffer += b; if (buffer.length > 8 * 1024 * 1024) fail('内容过大', 413); } if (!buffer) return {}; let parsed; try { parsed = JSON.parse(buffer); } catch { fail('请求内容格式不正确'); } if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) fail('请求内容必须为对象'); return parsed; }
 const editable = ['products', 'categories', 'stores', 'activities', 'alliances', 'rewards', 'homeModules'];
 function normalizeSku(value) {
@@ -153,6 +204,7 @@ function validate(collection, b) {
 async function route(req, url, b) {
   const p = url.pathname.replace(/^\/api/, ''); const method = req.method;
   expire();
+  if(method!=='GET'&&shareholders.rule(db).activatedAt)income.settle(db);
   if (p === '/health') return { ok: true, demoMode: DEMO, accountLogin: false, loginMode: 'wechat', wechatReady: wechat.configured(), paymentMode: paymentModeName() };
   if (p === '/bootstrap') {
     let migrated=false; for (const [k,v] of Object.entries(configDefaults)) if (db.config[k] === undefined) { db.config[k]=v; migrated=true; }
@@ -253,7 +305,7 @@ async function route(req, url, b) {
     if (db.config._categoryIdsNormalizedV1 !== true) { const featuredId = db.categories.find(c=>String(c.name||'').includes('特色'))?.id || 'category-featured'; const goodsId = db.categories.find(c=>String(c.name||'').includes('优选'))?.id || 'category-goods'; for (const product of db.products) { if (product.categoryId === 'category-featured') { product.categoryId=featuredId; migrated=true; } else if (product.categoryId === 'category-goods') { product.categoryId=goodsId; migrated=true; } else if (!product.categoryId) { product.categoryId = product.kind === 'goods' ? goodsId : featuredId; migrated=true; } } db.config._categoryIdsNormalizedV1=true; migrated=true; }
     for (const p of db.products) { normalizeProduct(p); if (!p.categoryId) { p.categoryId = p.kind === 'goods' ? 'category-goods' : 'category-featured'; migrated=true; } }
     if (migrated) save();
-    return { build:{businessVersion:APP_VERSION}, incomeRules: income.publicRules(db), config: db.config, products: db.products.filter(p => p.enabled && p.status === 'published').sort((a,b)=>(a.sort||0)-(b.sort||0)), categories: db.categories.filter(c => c.enabled !== false).sort((a,b)=>(a.sort||0)-(b.sort||0)), stores: db.stores.filter(s => s.enabled !== false), homeModules: db.homeModules.filter(m => m.enabled !== false && (m.publishStatus || 'published') === 'published').sort((a,b)=>(a.sort||0)-(b.sort||0)), demoMode: DEMO, paymentMode: paymentModeName() };
+    return { build:{businessVersion:APP_VERSION}, incomeRules: income.publicRules(db), config: db.config, dailyPool:shareholders.today(db), products: db.products.filter(p => p.enabled && p.status === 'published').sort((a,b)=>(a.sort||0)-(b.sort||0)), categories: db.categories.filter(c => c.enabled !== false).sort((a,b)=>(a.sort||0)-(b.sort||0)), stores: db.stores.filter(s => s.enabled !== false), homeModules: db.homeModules.filter(m => m.enabled !== false && (m.publishStatus || 'published') === 'published').sort((a,b)=>(a.sort||0)-(b.sort||0)), demoMode: DEMO, paymentMode: paymentModeName() };
   }
 
   if (['/auth/register','/auth/account','/auth/demo'].includes(p)) fail('仅支持微信一键登录',403);
@@ -272,16 +324,12 @@ async function route(req, url, b) {
     if(u?.disabled)fail('账号已停用',403);
     if(!u){
       u={id:id(),openid:identity.openid,wechatAppId:identity.appid,name:'微信用户',phone:'',avatar:'/static/assets/avatar.png',gender:'',invited:false,points:0,streak:0,lastSign:'',lastSignAt:'',createdAt:new Date().toISOString()};
-      if(typeof b.invite==='string'&&/^[a-fA-F0-9]{8}$/.test(b.invite)){
-        // 只有超级VIP会员（持有未退款的 VIP 套餐卡）的码才建立推荐关系；其他人的旧链接或码不算
-        const inviter=db.users.find(x=>!x.disabled&&!x.mergedInto&&x.id.slice(0,8).toUpperCase()===b.invite.toUpperCase());
-        if(inviter&&vipLevel(inviter)){u.invited=true;u.inviterId=inviter.id;db.shares.push({id:id(),userId:inviter.id,name:u.name,memberId:u.id,createdAt:u.createdAt})}
-      }
       db.users.push(u);
     }
+    const inviteStatus = b.invite ? bindInvite(u, b.invite).status : '';
     u.wechatLoginCodes=(u.wechatLoginCodes||[]).filter(c=>c.expires>now);
     u.wechatLoginCodes.push({hash:codeHash,expires:now+600000});
-    save();return {token:token(u.id),user:publicUser(u)};
+    save();return {token:token(u.id),user:publicUser(u),inviteStatus};
   }
   if (p === '/admin/login' && method === 'POST') {
     if(!DEMO)fail('请通过若依后台登录',403);
@@ -341,10 +389,18 @@ async function route(req, url, b) {
     if(collection==='notifications'){if(method!=='GET')fail('方法不允许',405);notifications.init(db);return db.notifications.slice().reverse()}
     if(collection==='notificationTemplates'){if(method!=='GET')fail('方法不允许',405);return notifications.templates()}
     if (collection === 'legacyMembers') {
-      if(method==='GET')return {members:db.users.filter(u=>!u.mergedInto).map(u=>({...publicUser(u),adminNote:u.adminNote||'',superVip:!!vipLevel(u)})),products:db.products.filter(p=>p.enabled&&p.status==='published'&&p.packagePlans?.length),stores:db.stores.filter(s=>s.enabled!==false),referral:income.referralRule(db),pool:income.poolRule(db)};
+      if(method==='GET')return {members:db.users.filter(u=>!u.mergedInto).map(u=>({...publicUser(u),adminNote:u.adminNote||'',superVip:!!vipLevel(u),canShare:canShare(u)})),products:db.products.filter(p=>p.enabled&&p.status==='published'&&p.packagePlans?.length),stores:db.stores.filter(s=>s.enabled!==false),shareholderProgram:shareholders.rule(db),referral:income.referralRule(db),pool:income.poolRule(db)};
       const result=legacyMembers.manage(db,method,key,b,req.headers['x-anqi-actor']||'admin');
       if(result.revokeUserId){for(const [key,value]of sessions)if(value.userId===result.revokeUserId)sessions.delete(key);save();return publicUser(result.member);}
       save();return result.productId?{id:result.id,number:result.number,package:result.package,total:result.total,incomeTreatment:result.incomeTreatment}:publicUser(result);
+    }
+    if(collection==='shareholders'){
+      if(!['GET','POST'].includes(method))fail('方法不允许',405);
+      if(method==='GET')return shareholders.overview(db);
+      const actor=req.headers['x-anqi-actor']||'admin';
+      income.settle(db);
+      const result=key==='program'?shareholders.configure(db,b,actor):key==='member'?shareholders.certify(db,b,actor):key==='pool'?shareholders.savePool(db,b,actor):key==='transfer'?transfers.manage(db,b,actor):fail('操作不存在',404);
+      save();return result;
     }
     if (collection === 'incomeRules') return income.manage(db,method,key,b,req.headers['x-anqi-actor']||'admin');
     if (collection === 'incomePlans') { if(method!=='GET')fail('方法不允许',405);income.settle(db);return db.incomePlans; }
@@ -371,7 +427,7 @@ async function route(req, url, b) {
       else fail('不支持的批量操作');
       selected.forEach(normalizeProduct); save(); return { ok: true, count: selected.length, products: selected };
     }
-    if (method === 'GET') return collection==='users'?db.users.filter(u=>!u.mergedInto).map(publicUser):collection==='products'?db.products.map(normalizeProduct):collection==='homeModules'?db.homeModules.slice().sort((a,b)=>(a.sort||0)-(b.sort||0)):collection==='orders'?db.orders.map(o=>o.incomeSnapshot?.referral?.skipped?{...o,referralNote:o.incomeSnapshot.referral.skipped}:o):db[collection];
+    if (method === 'GET') return collection==='users'?db.users.filter(u=>!u.mergedInto).map(publicUser):collection==='products'?db.products.map(normalizeProduct):collection==='homeModules'?db.homeModules.slice().sort((a,b)=>(a.sort||0)-(b.sort||0)):collection==='orders'?db.orders.map(o=>o.incomeSnapshot?.referral?.skipped?{...o,referralNote:o.incomeSnapshot.referral.skipped}:o):collection==='claims'?db.claims.map(claimView):db[collection];
     db.audit ||= []; if(method!=='GET')db.audit.unshift({id:id(),actor:req.headers['x-anqi-actor']||'admin',resource:collection,target:key||'',method,createdAt:new Date().toISOString()});
 
     if(method==='POST'&&collection==='products'&&key){
@@ -395,7 +451,20 @@ async function route(req, url, b) {
       else if(b.action==='pickup'){vipPackages.pickup(o,b.entitlementId,b.expectedUsed,req.headers['x-anqi-actor']||'admin');}
       else if(b.action==='cancel'){if(o.status!=='pending')fail('只能取消未付款订单');o.status='cancelled';restore(o);}
       else if(b.action==='ship'){if(o.status!=='shipping')fail('订单不是待取货状态');if(!text(b.tracking))fail('请填写物流单号或取货说明');o.tracking=text(b.tracking);notifications.enqueue(db,'orderShipped',o);}
-      else if(b.action==='refund'){if(!['ready','shipping','completed'].includes(o.status))fail('当前订单不可售后');if(o.refundStatus==='refunded')fail('订单已退款');if(o.package?.services.some(s=>s.used>0))fail('套餐已有核销记录，请联系门店处理售后，暂不支持部分退款');for(const a of db.appointments)if(a.orderId===o.id&&a.status==='booked'){a.status='cancelled';a.cancelReason='订单售后退款';notifications.enqueue(db,'appointmentCancelled',a);}o.refundStatus='refunded';o.refundNote=text(b.note);o.status='aftersale';restore(o);o.refundAt=new Date().toISOString();if(req.wechatRefund)o.wechatRefund=req.wechatRefund;}
+      else if(b.action==='refund'){
+        if(!['ready','shipping','completed'].includes(o.status))fail('当前订单不可售后');
+        if(o.refundStatus==='refunded')fail('订单已退款');
+        if(o.package?.services.some(s=>s.used>0))fail('套餐已有核销记录，请联系门店处理售后，暂不支持部分退款');
+        if(o.paymentMode!=='wechat'){
+          const refundedAt=Date.parse(b.refundedAt);
+          if(b.refundConfirmed!==true||b.refundAmount!==o.total||!text(b.refundMethod)||!text(b.refundReference)||!text(b.note))fail('请核实实际退款金额、方式、凭证及原因');
+          if(typeof b.refundedAt!=='string'||!/(Z|[+-]\d{2}:\d{2})$/.test(b.refundedAt)||!Number.isFinite(refundedAt)||refundedAt<Date.parse(o.paidAt)||refundedAt>Date.now())fail('实际退款时间无效');
+          o.refundMethod=text(b.refundMethod,80);o.refundReference=text(b.refundReference,80);
+          o.refundAmount=b.refundAmount;o.refundRecordedAt=new Date().toISOString();o.refundAt=new Date(refundedAt).toISOString();
+        }else o.refundAt=new Date().toISOString();
+        for(const a of db.appointments)if(a.orderId===o.id&&a.status==='booked'){a.status='cancelled';a.cancelReason='订单售后退款';notifications.enqueue(db,'appointmentCancelled',a);}
+        o.refundStatus='refunded';o.refundNote=text(b.note);o.status='aftersale';restore(o);if(req.wechatRefund)o.wechatRefund=req.wechatRefund;
+      }
       else fail('不支持的订单操作');if(b.action==='refund')income.refund(db,o);else income.activate(db,o);income.settle(db);save();return o;
     }
     if(method==='POST'&&collection==='users'){
@@ -404,7 +473,21 @@ async function route(req, url, b) {
       else if(b.action==='points'){const current=Number.isInteger(u.points)&&u.points>=0?u.points:0;if(!Number.isInteger(b.amount)||!b.amount||Math.abs(b.amount)>100000||current+b.amount<0||!text(b.note))fail('请输入有效积分变动及原因');u.points=current+b.amount;db.ledger.push({id:id(),userId:u.id,amount:b.amount,name:text(b.note),createdAt:new Date().toISOString()})}
       else fail('不支持的会员操作');save();return publicUser(u);
     }
-    if(method==='PUT'&&collection==='claims'){const r=db.claims.find(x=>x.id===key);if(!r)fail('记录不存在',404);if(r.status==='completed'||b.status!=='completed')fail('不可重复核销');r.status='completed';r.completedAt=new Date().toISOString();save();return r;}
+    if(method==='PUT'&&collection==='claims'){
+      const r=db.claims.find(x=>x.id===key);if(!r)fail('记录不存在',404);
+      if(r.status==='completed'||b.action!=='deliver')fail('请逐件确认实物领取');
+      const productId=text(b.productId,80),product=(r.products||[]).find(p=>p.id===productId)||db.products.find(p=>p.id===productId);
+      if(!r.productIds.includes(productId)||product?.kind!=='goods')fail('请选择该礼品中的实物商品');
+      if(r.deliveries?.[productId])fail('该实物已确认领取');
+      r.deliveries||={};r.deliveries[productId]={at:new Date().toISOString(),actor:req.headers['x-anqi-actor']||'admin'};
+      finishClaim(r);save();return claimView(r);
+    }
+    if(method==='PUT'&&collection==='redemptions'){
+      const r=db.redemptions.find(x=>x.id===key);if(!r)fail('兑换记录不存在',404);
+      if(r.status==='delivered'||b.status!=='delivered'||b.confirmed!==true||!text(b.note))fail('请核实礼品已交付并填写说明');
+      r.status='delivered';r.deliveredAt=new Date().toISOString();r.deliveryNote=text(b.note,500);r.deliveryActor=req.headers['x-anqi-actor']||'admin';
+      save();return r;
+    }
     if (editable.includes(collection)) {
       if (method === 'POST') { const row = { ...(collection === 'products' ? {sold:0,status:'draft',enabled:false,sort:0,recommended:false,hot:false,isNew:false,keywords:[],gallery:[],skus:[]} : {}), ...(collection === 'stores' ? {enabled:true} : {}), ...(collection === 'homeModules' ? {publishStatus:'draft'} : {}), ...validate(collection,b), id: id(), createdAt:new Date().toISOString() }; if(collection==='products')normalizeProduct(row); if (collection === 'categories' && db.categories.some(c=>c.name === row.name)) fail('分类名称已存在'); if (collection === 'products' && row.categoryId && !db.categories.some(c=>c.id===row.categoryId)) fail('商品分类不存在'); db[collection].push(row); save(); return row; }
       const row = db[collection].find(x => x.id === key); if (!row) fail('记录不存在',404);
@@ -414,13 +497,19 @@ async function route(req, url, b) {
       else fail('方法不允许',405);
       if(collection==='products')normalizeProduct(row); save(); return { ok: true };
     }
-    if (method === 'PUT' && collection === 'appointments') { const row = db.appointments.find(x => x.id === key); if (!row) fail('记录不存在',404); if (row.status !== 'booked' || !['completed','cancelled'].includes(b.status)) fail('只有已预约记录可完成或取消，已结束预约不可再次修改'); if(b.status==='completed'){const order=db.orders.find(x=>x.id===row.orderId);if(order?.package)vipPackages.complete(order,row);else if(order?.status==='ready')order.status='completed';row.completedAt=new Date().toISOString()}row.status = b.status; const incomeOrder=db.orders.find(o=>o.id===row.orderId);if(incomeOrder)income.activate(db,incomeOrder);income.settle(db);notifications.enqueue(db,row.status==='completed'?'appointmentCompleted':'appointmentCancelled',row);save(); return row; }
-    if (method === 'PUT' && collection === 'orders') { const row = db.orders.find(x => x.id === key); if (!row) fail('记录不存在',404); if(row.package)fail('套餐请在预约管理中按项目逐次核销'); if (!['ready','shipping'].includes(row.status) || b.status !== 'completed') fail('只有已支付订单可核销完成'); row.status = 'completed'; row.completedAt=new Date().toISOString(); for (const a of db.appointments) if (a.orderId === row.id && a.status === 'booked') a.status = 'completed'; income.activate(db,row);income.settle(db);save(); return row; }
+    if (method === 'PUT' && collection === 'appointments') { const row = db.appointments.find(x => x.id === key); if (!row) fail('记录不存在',404); if (row.status !== 'booked' || !['completed','cancelled'].includes(b.status)) fail('只有已预约记录可完成或取消，已结束预约不可再次修改'); if(b.status==='completed'){const order=db.orders.find(x=>x.id===row.orderId);if(order?.package)vipPackages.complete(order,row);else if(order?.status==='ready'){order.status='completed';order.completedAt=new Date().toISOString();}row.completedAt=new Date().toISOString()}row.status = b.status; if(row.status==='cancelled')trialQuota.release(db,row); if(row.claimId&&row.status==='completed'){const claim=db.claims.find(c=>c.id===row.claimId);if(claim)finishClaim(claim);} const incomeOrder=db.orders.find(o=>o.id===row.orderId);if(incomeOrder)income.activate(db,incomeOrder);income.settle(db);notifications.enqueue(db,row.status==='completed'?'appointmentCompleted':'appointmentCancelled',row);save(); return row; }
+    if (method === 'PUT' && collection === 'orders') { const row = db.orders.find(x => x.id === key); if (!row) fail('记录不存在',404); if(row.package)fail('套餐请在预约管理中按项目逐次核销'); if (!['ready','shipping'].includes(row.status) || b.status !== 'completed') fail('只有已支付订单可核销完成'); row.status = 'completed'; row.completedAt=new Date().toISOString(); for (const a of db.appointments) if (a.orderId === row.id && a.status === 'booked'){a.status='completed';a.completedAt=row.completedAt;} income.activate(db,row);income.settle(db);save(); return row; }
     if (method === 'PUT' && collection === 'users') { const row = db.users.find(x => x.id === key); if (!row) fail('记录不存在',404); if(b.invited!==undefined)row.invited=b.invited===true;if(b.disabled!==undefined)row.disabled=b.disabled===true;row.memberRevision=(row.memberRevision||0)+1;save();return publicUser(row); }
     fail('操作不支持',405);
   }
   if (['/activities','/alliances','/rewards'].includes(p) && method === 'GET') return db[p.slice(1)].filter(x => x.enabled !== false);
   const u = user(req);
+  if (p === '/invite/bind') {
+    if (method !== 'POST') fail('方法不允许', 405);
+    const result = bindInvite(u, b.invite);
+    save();
+    return { ...result, user: publicUser(u) };
+  }
   if (p === '/auth/logout' && method === 'POST') { sessions.delete((req.headers.authorization||'').replace(/^Bearer /,'')); return {ok:true}; }
   if (p === '/auth/refresh' && method === 'POST') { const current=session(req); current.expires=Date.now()+86400000; return {expiresAt:current.expires}; }
   if (p === '/me/avatar') {
@@ -432,28 +521,27 @@ async function route(req, url, b) {
     const dir=path.join(ROOT,'static/uploads');fs.mkdirSync(dir,{recursive:true});const filename=id()+'.'+(match[1]==='jpeg'?'jpg':match[1]);fs.writeFileSync(path.join(dir,filename),bytes);u.avatar='/static/uploads/'+filename;save();return {avatar:u.avatar};
   }
   if (p === '/share-code' && method === 'GET') {
-    // 只有超级VIP会员才有专属二维码；其他会员只看到自己的会员编号（门店核对身份用）
-    if(!vipLevel(u))return {locked:true,memberCode:u.id.slice(0,8).toUpperCase()};
+    // 启用股东规则后统一校验认证资格；会员编号仍用于核对身份。
+    if(!canShare(u))return {locked:true,memberCode:u.id.slice(0,8).toUpperCase()};
     const code=u.id.slice(0,8).toUpperCase();const dir=path.join(ROOT,'static/uploads');fs.mkdirSync(dir,{recursive:true});
     const filename='share-'+u.id+'.png';const dest=path.join(dir,filename);
     let mode='web';
-    // In production prefer a real WeChat mini-program code. It opens the
-    // native home page after scanning and can be recognized directly from the
-    // long-press menu. The H5 QR remains the safe local/test fallback.
-    if(!DEMO && wechat.configured()){
+    // The web QR is only for isolated tests and demos. Production must never
+    // hand out a web link when its WeChat mini-program code cannot be created.
+    const localQr=DEMO||(process.env.NODE_ENV==='test'&&process.env.WECHAT_MOCK==='true');
+    if(!localQr){
+      if(!wechat.configured())fail('专属小程序码暂不可用，请联系门店',503);
       try {
-        const accessResponse=await fetch('https://api.weixin.qq.com/cgi-bin/token?'+new URLSearchParams({grant_type:'client_credential',appid:process.env.WECHAT_APPID,secret:process.env.WECHAT_APPSECRET}));
+        const accessResponse=await fetch('https://api.weixin.qq.com/cgi-bin/token?'+new URLSearchParams({grant_type:'client_credential',appid:process.env.WECHAT_APPID,secret:process.env.WECHAT_APPSECRET}),{signal:AbortSignal.timeout(8000)});
         const access=await accessResponse.json();
         if(!access.access_token) throw new Error('wechat token');
-        const result=await fetch('https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token='+encodeURIComponent(access.access_token),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scene:code,page:'pages/home/index',width:430,check_path:false,env_version:process.env.WECHAT_ENV_VERSION||'trial'})});
+        const result=await fetch('https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token='+encodeURIComponent(access.access_token),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scene:code,page:'pages/home/index',width:430,check_path:false,env_version:process.env.WECHAT_ENV_VERSION||'trial'}),signal:AbortSignal.timeout(8000)});
         const contentType=result.headers.get('content-type')||'';
         if(!result.ok||!contentType.includes('image')) throw new Error('wechat code');
         fs.writeFileSync(dest,Buffer.from(await result.arrayBuffer()));
         mode='weixin';
       } catch {
-        const QRCode=require('qrcode');
-        await QRCode.toFile(dest,(process.env.PUBLIC_ORIGIN||'https://anqi.okam.top')+'/#/pages/home/index?invite='+code,{width:430,margin:4,errorCorrectionLevel:'H',color:{dark:'#173b30',light:'#ffffff'}});
-        mode='web';
+        fail('专属小程序码生成失败，请稍后重试',503);
       }
     } else {
       const QRCode=require('qrcode');await QRCode.toFile(dest,(process.env.PUBLIC_ORIGIN||'https://anqi.okam.top')+'/#/pages/home/index?invite='+code,{width:430,margin:4,errorCorrectionLevel:'H',color:{dark:'#173b30',light:'#ffffff'}});
@@ -463,7 +551,7 @@ async function route(req, url, b) {
 
   if(p==='/subscriptions'){if(method==='GET')return {templates:notifications.options(db)};if(method==='POST'){let result;try{result=notifications.consent(db,u,b.acceptedTemplateIds)}catch(e){fail(e.message)}save();return result}fail('方法不允许',405)}
 
-  if (p === '/me') { if (method === 'PUT') { if (!text(b.name,40)) fail('请输入姓名'); u.name = text(b.name,40); u.gender = ['male','female'].includes(b.gender) ? b.gender : ''; save(); } return { ...publicUser(u), vipLevel: vipLevel(u) }; }
+  if (p === '/me') { if (method === 'PUT') { if (!text(b.name,40)) fail('请输入姓名'); u.name = text(b.name,40); u.gender = ['male','female'].includes(b.gender) ? b.gender : ''; save(); } return { ...publicUser(u), vipLevel: vipLevel(u), canShare:canShare(u), trialQuota:trialQuota.summary(db,u.id) }; }
   if (p === '/sign' && method === 'POST') {
     if (u.lastSign === day()) fail('今日已签到');
     const yesterday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() - 86400000));
@@ -474,11 +562,12 @@ async function route(req, url, b) {
     const idempotencyKey = text(req.headers['idempotency-key'], 128);
     if (idempotencyKey) {
       const previous = db.orders.find(x => x.userId === u.id && x.idempotencyKey === idempotencyKey);
-      if (previous) return previous;
+      if (previous) return publicOrder(previous);
     }
     const product = db.products.find(p => p.id === b.productId && p.enabled && p.status === 'published'); if (!product) fail('商品已下架');
     if (product.trialOnly === true) fail('卡券项目请领取后预约');
     if (!Number.isInteger(b.quantity) || b.quantity < 1 || b.quantity > 99) fail('数量须在1至99之间');
+    if(b.paymentChoice!==undefined&&!['offline','wechat'].includes(b.paymentChoice))fail('付款方式无效');
     const packageOrder = product.packagePlans?.length ? vipPackages.selectPackage(product, b.packageSelection) : null;
     if (packageOrder && (b.quantity !== 1 || b.spec !== 'single' || b.skuId)) fail('每笔套餐订单限购一套，请选择套餐方案');
     const sku = b.skuId ? product.skus?.find(s => s.id === b.skuId && s.enabled !== false) : (product.skus?.length ? product.skus.find(s => s.enabled !== false) : null);
@@ -491,13 +580,13 @@ async function route(req, url, b) {
     const price = sku ? sku.price : (b.spec === 'course' ? product.coursePrice : (product.memberPrice??product.price)); if (!Number.isFinite(price)) fail('商品没有此规格');
     let address = null; if (product.kind === 'goods') address = { ...own('addresses',b.addressId,u) };
     const snapshot=JSON.parse(JSON.stringify(product)); if(sku) snapshot.selectedSku=JSON.parse(JSON.stringify(sku));
-    const o = { id: id(), number: Date.now().toString() + crypto.randomInt(100,999), userId: u.id, ...(idempotencyKey ? { idempotencyKey } : {}), productId: product.id, skuId: sku?.id || '', product: snapshot, ...((packageOrder || courseOrder) ? { package: packageOrder || courseOrder } : {}), quantity: b.quantity, spec: b.spec, price, total: Math.round(price * b.quantity * 100) / 100, storeId: store.id, store: storeSnapshot(store), address, message: text(b.message), status: 'pending', refundStatus: '', createdAt: new Date().toISOString() };
+    const o = { id: id(), number: Date.now().toString() + crypto.randomInt(100,999), userId: u.id, referrerIdAtOrder: u.inviterId || '', ...(idempotencyKey ? { idempotencyKey } : {}), productId: product.id, skuId: sku?.id || '', product: snapshot, paymentChoice:b.paymentChoice, ...((packageOrder || courseOrder) ? { package: packageOrder || courseOrder } : {}), quantity: b.quantity, spec: b.spec, price, total: Math.round(price * b.quantity * 100) / 100, storeId: store.id, store: storeSnapshot(store), address, message: text(b.message), status: 'pending', refundStatus: '', createdAt: new Date().toISOString() };
     if (sku) { sku.stock -= b.quantity; product.stock = product.skus.filter(s=>s.enabled!==false).reduce((n,s)=>n+s.stock,0); } else product.stock -= b.quantity;
-    income.snapshot(db,o);db.orders.unshift(o); save(); return o;
+    income.snapshot(db,o);db.orders.unshift(o); save(); return publicOrder(o);
   }
   const orderMatch = p.match(/^\/orders\/([^/]+)(?:\/(cancel|pay))?$/);
   if (orderMatch) {
-    const o = own('orders',orderMatch[1],u); if (method === 'GET') return o;
+    const o = own('orders',orderMatch[1],u); if (method === 'GET') return publicOrder(o);
     if (method !== 'POST') fail('方法不允许',405);
     if (orderMatch[2] === 'pay') {
       if (!MOCK_PAYMENT) fail('当前未开通在线支付，请联系门店付款',503);
@@ -548,6 +637,7 @@ async function route(req, url, b) {
     let o = null;
     if (b.claimId) {
       claim = own('claims', b.claimId, u);
+      trialQuota.assertAvailable(db,claim);
       if (claim.status==='completed') fail('该礼品已经使用过');
       const giftBookings=db.appointments.filter(a=>a.claimId===claim.id&&a.productId===b.productId);
       if(giftBookings.some(a=>a.status==='booked'))fail('该项目已有预约，完成后再约下一次');
@@ -570,14 +660,16 @@ async function route(req, url, b) {
     if (p === '/appointment-options') return staffScheduling.options(db, store, b.date);
     const assignment = staffScheduling.reserve(db, store, b);
     const a = { id: id(), userId: u.id, ...(o ? { orderId:o.id, ...(entitlement ? { entitlementId:entitlement.id, packageName:o.product.name } : {}) } : { claimId:claim.id, productId:product.id }), name: product.name, storeId, store: storeSnapshot(store), ...assignment, date: b.date, time: b.time, status: 'booked', createdAt:new Date().toISOString() };
+    if(claim)trialQuota.reserve(db,claim,product.id,a);
     db.appointments.push(a);notifications.enqueue(db,'appointmentBooked',a);
     // Each gift in a claim is reserved by its own appointment, not by the whole claim.
     save(); return a;
   }
   if (p === '/claims' && method === 'GET') {
-    return db.claims.filter(x => x.userId === u.id).map(c => ({ ...c, products: (c.productIds || []).map(pid => {const product=(c.products||[]).find(p=>p.id===pid)||db.products.find(p=>p.id===pid);if(!product)return null;const bookings=db.appointments.filter(a=>a.claimId===c.id&&a.productId===pid&&a.status!=='cancelled'),active=bookings.find(a=>a.status==='booked'),usesTotal=c.uses||1,usesCompleted=bookings.filter(a=>a.status==='completed').length,usesRemaining=c.status==='completed'?0:Math.max(0,usesTotal-usesCompleted);return {...product,useStatus:active?'booked':usesRemaining>0?'available':'completed',bookingId:(active||bookings[bookings.length-1])?.id||'',usesTotal,usesCompleted,usesRemaining}}).filter(Boolean) }));
+    return db.claims.filter(x => x.userId === u.id).map(publicClaim);
   }
   if (p === '/claims' && method === 'POST') {
+    if(b.type==='trial'){const claim=trialQuota.select(db,u.id,b.productIds);save();return publicClaim(claim);}
     if (b.type !== 'trial' && !u.invited) fail('贵宾卡仅限受邀新用户领取')
     const claimType = b.type === 'trial' ? 'trial' : 'vip';
     if (db.claims.some(x => x.userId === u.id && (x.type || 'trial') === claimType)) fail(claimType === 'vip' ? '您已领取过贵宾礼品' : '您已领取过体验礼品');
@@ -589,11 +681,27 @@ async function route(req, url, b) {
   }
   if (p === '/redemptions' && method === 'POST') {
     const r = db.rewards.find(x => x.id === b.rewardId && x.enabled !== false); if (!r || r.stock < 1) fail('积分商品库存不足'); if ((u.points || 0) < r.points) fail('积分不足');
-    u.points -= r.points; r.stock--; const row = { id: id(), userId: u.id, name: r.name, points: r.points, createdAt: new Date().toISOString() }; db.redemptions.push(row); db.ledger.push({ ...row, id: id(), amount: -r.points, name: '兑换' + r.name }); save(); return row;
+    u.points -= r.points; r.stock--; const row = { id: id(), userId: u.id, rewardId:r.id, name: r.name, points: r.points, status:'pendingPickup', createdAt: new Date().toISOString() }; db.redemptions.push(row); db.ledger.push({ id:id(), userId:u.id, amount:-r.points, name:'兑换'+r.name, createdAt:row.createdAt }); save(); return row;
   }
-  if (p === '/earnings-summary' && method === 'GET') {income.settle(db);return {...income.summary(db,u.id),plans:income.customerPlans(db,u.id),payouts:income.customerPayouts(db,u.id)};}
+  if (p === '/earnings-summary' && method === 'GET') {income.settle(db);return {...income.summary(db,u.id),dailyPool:shareholders.today(db,u.id),transfers:transfers.view(db,u.id),plans:income.customerPlans(db,u.id),payouts:income.customerPayouts(db,u.id)};}
   if (p === '/earnings' && method === 'GET') income.settle(db);
-  if (['/orders','/addresses','/appointments','/ledger','/redemptions','/shares','/earnings'].includes(p) && method === 'GET') return db[p.slice(1)].filter(x => x.userId === u.id);
+  if (p === '/orders' && method === 'GET') return db.orders.filter(x => x.userId === u.id).map(publicOrder);
+  if (p === '/redemptions' && method === 'GET') return db.redemptions.filter(x => x.userId === u.id).map(publicRedemption);
+  if (p === '/shares' && method === 'GET') {
+    const bound = db.users.filter(member => member.inviterId === u.id && !member.mergedInto).map(member => {
+      const record = db.shares.find(row => row.userId === u.id && row.memberId === member.id);
+      return { id: record?.id || member.id, memberId: member.id, memberCode: member.id.slice(0, 8).toUpperCase(), name: member.name || record?.name || '微信好友', createdAt: record?.createdAt || member.createdAt };
+    });
+    const seen = new Set(bound.map(row => row.memberId));
+    const historical = db.shares.filter(row => row.userId === u.id && row.source === 'historicalDisplay').flatMap(row => {
+      const member = db.users.find(user => user.id === row.memberId);
+      if (!member || member.mergedInto || member.inviterId || seen.has(member.id)) return [];
+      seen.add(member.id);
+      return [{ id: row.id, memberId: member.id, memberCode: member.id.slice(0, 8).toUpperCase(), name: member.name || row.name || '微信好友', createdAt: row.createdAt, displayOnly: true }];
+    });
+    return [...bound, ...historical];
+  }
+  if (['/addresses','/appointments','/ledger','/earnings'].includes(p) && method === 'GET') return db[p.slice(1)].filter(x => x.userId === u.id);
   fail('接口不存在',404);
 }
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg':'image/jpeg', '.jpeg':'image/jpeg', '.webp':'image/webp', '.svg': 'image/svg+xml', '.json': 'application/json' };
@@ -606,6 +714,7 @@ const server = http.createServer(async (req,res) => {
     const url = new URL(req.url,'http://localhost');
     if(process.env.DB_READ_ONLY==='true' && !['GET','HEAD'].includes(req.method))fail('当前连接为只读模式，禁止修改服务器数据',403);
     if (url.pathname === '/api/pay/notify' && req.method === 'POST') { if (!WECHAT_PAY) fail('微信支付未开通',404); return wechatNotify(req,res); }
+    if(url.pathname==='/api/transfer-notify'&&req.method==='POST'){let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>65536)fail('通知过大',400)}await wechatPay.parseNotify(req.headers,raw);res.statusCode=204;res.end();return;}
     if (url.pathname.startsWith('/api/')) { const payload=['POST','PUT'].includes(req.method)?await body(req):{};let result=WECHAT_PAY?await wechatRoute(req,url,payload):undefined;if(result===undefined)result=await txn(()=>route(req,url,payload)); if(result?.httpStatus){res.statusCode=result.httpStatus;delete result.httpStatus;} res.setHeader('Content-Type','application/json; charset=utf-8'); res.setHeader('Cache-Control','no-store'); return res.end(JSON.stringify(result,(key,value)=>key==='incomeSnapshot'?undefined:value)); }
     if (url.pathname === '/admin' || url.pathname.startsWith('/admin/')) fail('请使用若依管理端',404);
     const isStatic = url.pathname.startsWith('/static/');
@@ -685,6 +794,7 @@ async function wechatRoute(req,url,b){
       expire();const u=user(req);const o=own('orders',orderId,u);
       if(o.paymentStatus==='paid')return {order:o};
       if(o.status!=='pending')fail('订单状态已变化');
+      if(o.paymentChoice==='offline')fail('该订单选择门店收银，请由门店确认收款');
       if(!(wechatPay.cents(o.total)>0))fail('0元订单无需在线支付，请联系门店确认');
       if(!u.openid||u.wechatAppId!==process.env.WECHAT_APPID)fail('请在小程序内使用微信登录后支付');
       if(Date.now()>wechatPay.expireAt(o)-60000)fail('订单已超过支付时间，请重新下单');
@@ -697,6 +807,7 @@ async function wechatRoute(req,url,b){
       const u=user(req);const o=own('orders',orderId,u);
       if(o.paymentStatus==='paid')return {order:o,paid:true};
       if(o.status!=='pending')fail('订单状态已变化');
+      if(o.paymentChoice==='offline')fail('该订单选择门店收银，请由门店确认收款');
       if(o.wechatPay?.prepayId!==prepayId){o.wechatPay={prepayId,prepayAt:new Date().toISOString(),expireAt:new Date(wechatPay.expireAt(o)).toISOString()};paymentAudit(o,{outcome:'prepay',source:'customer'});save();}
       return {order:o,payment:wechatPay.payParams(prepayId)};
     });
@@ -751,7 +862,9 @@ async function drainNotifications(){
  if(item){let result;try{result=await notifications.send(item.job,item.openid)}catch{result={status:'failed',error:'微信消息服务暂不可用'}}await transaction(state=>{const row=state.notifications.find(n=>n.id===item.job.id);if(row)Object.assign(row,result,{finishedAt:new Date().toISOString()})})}
  }finally{notificationWorkerBusy=false}
 }
-async function start(){if(process.env.DB_NAME)mysqlStore=await require('./mysql-store.cjs')(seed());if(process.env.DB_READ_ONLY!=='true'){await migrateOnStart();await settleIncome();await reconcileWechat().catch(e=>console.error('微信支付对账失败',e.message));setInterval(()=>reconcileWechat().catch(e=>console.error('微信支付对账失败',e.message)),60000).unref();setInterval(()=>drainNotifications().catch(()=>{}),5000).unref();setInterval(()=>settleIncome().catch(e=>console.error('收益入账失败',e.message)),60000).unref();}server.listen(Number(process.env.PORT || 3000),HOST,() => { console.log('秀荣科技美肤业务服务: http://' + HOST + ':' + (process.env.PORT || 3000) + '/api/health'); console.log('演示开关：' + DEMO); });}start().catch(e=>{console.error(e);process.exit(1)});
+let transferWorkerBusy=false;
+async function drainTransfers(){if(transferWorkerBusy)return;transferWorkerBusy=true;try{await transfers.drain(fn=>mysqlStore?mysqlStore.run(fn):runFile(()=>fn(db)))}finally{transferWorkerBusy=false}}
+async function start(){if(process.env.DB_NAME)mysqlStore=await require('./mysql-store.cjs')(seed());if(process.env.DB_READ_ONLY!=='true'){await migrateOnStart();await settleIncome();setInterval(()=>drainTransfers().catch(()=>{}),5000).unref();await reconcileWechat().catch(e=>console.error('微信支付对账失败',e.message));setInterval(()=>reconcileWechat().catch(e=>console.error('微信支付对账失败',e.message)),60000).unref();setInterval(()=>drainNotifications().catch(()=>{}),5000).unref();setInterval(()=>settleIncome().catch(e=>console.error('收益入账失败',e.message)),60000).unref();}server.listen(Number(process.env.PORT || 3000),HOST,() => { console.log('秀荣科技美肤业务服务: http://' + HOST + ':' + (process.env.PORT || 3000) + '/api/health'); console.log('演示开关：' + DEMO); });}start().catch(e=>{console.error(e);process.exit(1)});
 
 
 

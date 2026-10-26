@@ -12,7 +12,8 @@
 |---|---|---|
 | GET | /health | 服务状态/演示模式 |
 | GET | /bootstrap | 页面配置、上架商品、门店 |
-| POST | /auth/wechat | 微信小程序一键登录，body `{code,invite?}` |
+| POST | /auth/wechat | 微信小程序一键登录，body `{code,invite?}`；带邀请码时返回 `inviteStatus` |
+| POST | /invite/bind | 已登录会员首次绑定推荐人，body `{invite}`；已有推荐关系不覆盖，历史订单不追溯推荐奖励 |
 | POST | /auth/refresh | 刷新当前微信会话 |
 | POST | /auth/logout | 退出并使当前会话失效 |
 | GET/PUT | /me | 当前用户；更新name、gender |
@@ -29,7 +30,7 @@
 | GET | /ledger | 当前用户积分明细 |
 | GET | /rewards | 已上架积分商品 |
 | GET/POST | /redemptions | 当前用户兑换记录/兑换商品，body `{rewardId}` |
-| GET | /shares、/earnings | 本人邀请/收益列表（预留） |
+| GET | /shares、/earnings | 本人已绑定的邀请会员及收益列表 |
 | POST | /admin/login | 管理登录；password |
 | GET | /admin/dashboard | 经营统计 |
 | GET/PUT | /admin/config | 首页海报、协议、会员规则 |

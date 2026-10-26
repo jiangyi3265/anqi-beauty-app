@@ -79,7 +79,7 @@ const referralPlans=db=>db.incomePlans.filter(p=>p.source==='referral');
 })();
 
 const root=path.resolve(__dirname,'..'),dir=fs.mkdtempSync(path.join(os.tmpdir(),'anqi-referral-')),file=path.join(dir,'db.json'),secret=crypto.randomBytes(24).toString('hex');let child,base;
-async function req(route,method='GET',data,token,status=200,admin=false){const r=await fetch(base+route,{method,headers:{'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{}),...(admin?{'x-anqi-internal':secret}:{})},body:data===undefined?undefined:JSON.stringify(data)});const b=await r.json();assert.equal(r.status,status,`${method} ${route}: ${JSON.stringify(b)}`);return b}
+async function req(route,method='GET',data,token,status=200,admin=false,headers={}){const r=await fetch(base+route,{method,headers:{'content-type':'application/json',...(token?{authorization:'Bearer '+token}:{}),...(admin?{'x-anqi-internal':secret}:{}),...headers},body:data===undefined?undefined:JSON.stringify(data)});const b=await r.json();assert.equal(r.status,status,`${method} ${route}: ${JSON.stringify(b)}`);return b}
 const admin=(route,method='GET',data,status=200)=>req('/admin/'+route,method,data,null,status,true);
 async function start(){const socket=net.createServer().listen(0,'127.0.0.1');await once(socket,'listening');const port=socket.address().port;await new Promise(r=>socket.close(r));base=`http://127.0.0.1:${port}/api`;child=spawn(process.execPath,['server/index.cjs'],{cwd:root,env:{...process.env,HOST:'127.0.0.1',PORT:String(port),DATA_FILE:file,DB_NAME:process.env.REFERRAL_TEST_DB_NAME||'',NODE_ENV:'test',DEMO_MODE:'false',WECHAT_MOCK:'true',ADMIN_PASSWORD:secret,INTERNAL_SECRET:secret,PAYMENT_MODE:'off'},stdio:['ignore','ignore','pipe']});let errors='';child.stderr.on('data',b=>errors+=b);for(let i=0;i<100;i++){if(child.exitCode!==null)throw Error(errors);try{if((await fetch(base+'/health')).ok)return}catch{}await new Promise(r=>setTimeout(r,50))}throw Error(errors||'startup timeout')}
 async function stop(){if(child&&child.exitCode===null){const done=once(child,'exit');child.kill();await done}}
@@ -95,10 +95,16 @@ async function stop(){if(child&&child.exitCode===null){const done=once(child,'ex
   const parent=await req('/auth/wechat','POST',{code:'ref-parent-'+Date.now(),invite:grand.user.id.slice(0,8)});await makeSuperVip(admin,parent.user.id,'parent');
   const buyer=await req('/auth/wechat','POST',{code:'ref-buyer-'+Date.now(),invite:parent.user.id.slice(0,8).toUpperCase()});
   const plan=vip.packagePlans[0],selection={planId:plan.id,groups:Object.fromEntries(plan.groups.map(g=>[g.id,g.services.slice(0,g.pick).map(s=>({serviceId:s.id,...(s.options?.length?{option:s.options[0]}:{})}))]))};
-  const o1=await req('/orders','POST',{productId:kit.id,quantity:1,spec:'single',storeId:store},buyer.token);
+  const orderInput={productId:kit.id,quantity:1,spec:'single',storeId:store};
+  const orderHeaders={'idempotency-key':'referral-order-1'};
+  const o1=await req('/orders','POST',orderInput,buyer.token,200,false,orderHeaders);
   assert.equal(o1.incomeSnapshot,undefined);
+  assert.equal(o1.referrerIdAtOrder,undefined);
+  assert.deepEqual(await req('/orders','POST',orderInput,buyer.token,200,false,orderHeaders),o1);
+  assert.equal((await admin('orders')).find(order=>order.id===o1.id).referrerIdAtOrder,parent.user.id);
   await admin('orders/'+o1.id,'POST',{action:'confirmPayment',note:'referral first'});
   const o2=await req('/orders','POST',{productId:vip.id,quantity:1,spec:'single',storeId:store,packageSelection:selection},buyer.token);
+  assert.equal((await admin('orders')).find(order=>order.id===o2.id).referrerIdAtOrder,parent.user.id);
   await admin('orders/'+o2.id,'POST',{action:'confirmPayment',note:'referral later'});
   const expected=Math.round(o1.total*50)/100+Math.round(o2.total*10)/100;
   const ps=await req('/earnings-summary','GET',undefined,parent.token);assert.equal(ps.dynamic,expected);
@@ -106,7 +112,7 @@ async function stop(){if(child&&child.exitCode===null){const done=once(child,'ex
   const names=(await req('/earnings','GET',undefined,parent.token)).map(e=>e.name).join('|');assert.match(names,/首单 50%/);assert.match(names,/后续订单 10%/);
   assert.equal(ps.plans.filter(p=>p.source==='referral').length,2);
   checks.push(`API: an ordinary first order (${o1.total}) and a VIP later order (${o2.total}) pay the direct referrer ${expected}; the referrer's referrer gets nothing`);
-  await admin('orders/'+o2.id,'POST',{action:'refund',note:'referral refund'});
+  await admin('orders/'+o2.id,'POST',{action:'refund',note:'referral refund',refundConfirmed:true,refundAmount:o2.total,refundedAt:new Date().toISOString(),refundMethod:'test',refundReference:'test-'+o2.id});
   assert.equal((await req('/earnings-summary','GET',undefined,parent.token)).dynamic,Math.round(o1.total*50)/100);
   checks.push('API: a full refund reverses that order\'s referral reward only');
   const count=(await admin('earnings')).length;await stop();await start();

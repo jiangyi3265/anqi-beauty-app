@@ -87,6 +87,16 @@ const beijingDate = now => new Date(now + 8 * 3600000).toISOString().slice(0, 10
     assert.equal(ledger.reduce((n, r) => n + r.amount, 0), won ? 0 : config.signPoints);
   }
   assert.equal((await admin('/rewards')).find(r => r.id === reward.id).stock, 0);
+  const picked = redeemed.find(r => r.status === 200).data;
+  assert.equal(picked.status, 'pendingPickup');
+  await admin('/redemptions/' + picked.id, 'PUT', { status: 'delivered' }, 400);
+  const delivered = await admin('/redemptions/' + picked.id, 'PUT', { status: 'delivered', confirmed: true, note: '隔离测试：已交付' });
+  assert.equal(delivered.status, 'delivered');
+  assert.ok(delivered.deliveredAt);
+  const winner = redeemed[0].status === 200 ? alice : bob;
+  assert.equal((await request('/redemptions', 'GET', undefined, winner.token))[0].deliveryNote, undefined);
+  await admin('/redemptions/' + picked.id, 'PUT', { status: 'delivered', confirmed: true, note: '重复' }, 400);
+  checks.push('积分礼品先待领取，交付确认后只更新一次状态，不再次扣积分');
   const expensive = await admin('/rewards', 'POST', { name: '积分不足商品', points: config.signPoints + 1, stock: 2, enabled: true });
   await request('/redemptions', 'POST', { rewardId: expensive.id }, bob.token, 400);
   assert.equal((await admin('/rewards')).find(r => r.id === expensive.id).stock, 2);
@@ -118,7 +128,34 @@ const beijingDate = now => new Date(now + 8 * 3600000).toISOString().slice(0, 10
   const reservations = await Promise.all([1, 2].map(() => request('/appointments', 'POST', next, alice.token, null)));
   assert.deepEqual(reservations.map(r => r.status).sort(), [200, 400]);
   assert.equal((await request('/appointments', 'GET', undefined, alice.token)).length, 1);
+  const serviceAppointment = reservations.find(r => r.status === 200).data;
+  await admin('/appointments/' + serviceAppointment.id, 'PUT', { status: 'completed' });
+  assert.ok((await request('/orders/' + order.id, 'GET', undefined, alice.token)).completedAt);
+  const directOrder = await request('/orders', 'POST', { productId: product.id, spec: 'single', quantity: 1, storeId: catalogue.stores[0].id }, alice.token);
+  await admin('/orders/' + directOrder.id, 'POST', { action: 'confirmPayment', note: '隔离测试收款' });
+  const directAppointment = await request('/appointments', 'POST', { orderId: directOrder.id, date: beijingDate(Date.now() + 4 * 86400000), time: '09:00' }, alice.token);
+  await admin('/orders/' + directOrder.id, 'PUT', { status: 'completed' });
+  assert.ok((await request('/appointments', 'GET', undefined, alice.token)).find(a => a.id === directAppointment.id).completedAt);
   checks.push('北京时间已过时段和无效日期被拒绝，重复预约仅创建一次');
+  const trialProducts = [];
+  for (const name of ['体验服务甲', '体验服务乙', '体验服务丙']) {
+    trialProducts.push(await admin('/products', 'POST', { name, kind: 'service', price: 10, stock: 2, status: 'published', trial: true, image: '/static/brand/logo-jimeili.png' }));
+  }
+  const charlie = await request('/auth/wechat', 'POST', { code: 'integrity-gift-' + crypto.randomUUID() });
+  let claim;
+  for (const product of trialProducts) {
+    claim = await request('/claims', 'POST', { type: 'trial', productIds: [product.id] }, charlie.token);
+  }
+  await request('/claims', 'POST', { type: 'trial', productIds: trialProducts.map(p => p.id) }, charlie.token, 400);
+  for (let i = 0; i < trialProducts.length; i++) {
+    const appointment = await request('/appointments', 'POST', { claimId: claim.id, productId: trialProducts[i].id, storeId: catalogue.stores[0].id, date: beijingDate(Date.now() + (i + 2) * 86400000), time: '09:00' }, charlie.token);
+    await admin('/appointments/' + appointment.id, 'PUT', { status: 'completed' });
+  }
+  const completedClaim = (await request('/claims', 'GET', undefined, charlie.token)).find(c => c.id === claim.id);
+  assert.equal(completedClaim.status, 'completed');
+  assert.equal((await request('/me', 'GET', undefined, charlie.token)).trialQuota.remaining, 0);
+  await request('/claims', 'POST', { type: 'trial', productIds: [trialProducts[0].id] }, charlie.token, 400);
+  checks.push('体验项目逐项选择，三次预约核销后额度用完，超额领取被拒绝');
   console.log(JSON.stringify({ ok: true, storage: testDatabase ? 'mysql' : 'json', scenarios: checks.length, checks }, null, 2));
 })().catch(error => { console.error(error.stack); process.exitCode = 1; }).finally(async () => {
   if (server && server.exitCode === null) { const exited = once(server, 'exit'); server.kill(); await exited; }

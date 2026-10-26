@@ -17,7 +17,11 @@ function localAsset(path) {
 export function resolveUploadedAssets(value, origin) {
   if (typeof value === 'string') {
     const local = localAsset(value)
-    return (local.startsWith('/static/uploads/') || local.startsWith('/static/brand/')) ? origin + local : local
+    const remote = local.startsWith('/static/uploads/') || local.startsWith('/static/brand/')
+      // #ifdef MP-WEIXIN
+      || local.startsWith('/static/assets/')
+      // #endif
+    return remote ? origin + local : local
   }
   if (Array.isArray(value)) return value.map(item => resolveUploadedAssets(item, origin))
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, resolveUploadedAssets(item, origin)]))

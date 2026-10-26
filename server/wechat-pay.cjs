@@ -76,12 +76,12 @@ async function verify(get, raw) {
   if (!ok) throw payError('微信支付签名无效', 401);
 }
 
-async function request(method, path, body) {
+async function request(method, path, body, headers = {}) {
   const c = config(), ts = String(Math.floor(Date.now() / 1000)), n = nonce(), text = body === undefined ? '' : JSON.stringify(body);
   const auth = `WECHATPAY2-SHA256-RSA2048 mchid="${c.mchid}",nonce_str="${n}",signature="${sign(`${method}\n${path}\n${ts}\n${n}\n${text}\n`)}",timestamp="${ts}",serial_no="${c.serial}"`;
   let res, raw;
   try {
-    res = await fetch(c.base + path, { method, headers: { Authorization: auth, Accept: 'application/json', 'Content-Type': 'application/json', 'User-Agent': 'xiurong-beauty-business/1.0' }, body: body === undefined ? undefined : text, signal: AbortSignal.timeout(10000), redirect: 'error' });
+    res = await fetch(c.base + path, { method, headers: { ...headers, Authorization: auth, Accept: 'application/json', 'Content-Type': 'application/json', 'User-Agent': 'xiurong-beauty-business/1.0' }, body: body === undefined ? undefined : text, signal: AbortSignal.timeout(10000), redirect: 'error' });
     raw = await res.text();
   } catch { throw payError('微信支付服务暂时无法连接，请稍后重试', 503); }
   return { status: res.status, get: name => res.headers.get(name), raw };
@@ -97,8 +97,8 @@ async function loadCertificates() {
   platformKeys.clear(); for (const [k, v] of keys) platformKeys.set(k, v); platformLoadedAt = Date.now();
 }
 const MESSAGES = { ORDERPAID: '订单已支付', ORDER_CLOSED: '微信支付订单已关闭', ORDER_NOT_EXIST: '微信支付订单不存在', NOT_ENOUGH: '商户可用退款余额不足，请充值后重试', FREQUENCY_LIMITED: '操作太频繁，请稍后重试', SYSTEM_ERROR: '微信支付系统繁忙，请稍后重试' };
-async function call(method, path, body) {
-  const r = await request(method, path, body);
+async function call(method, path, body, headers) {
+  const r = await request(method, path, body, headers);
   // 成功应答必须验签；错误应答若带签名也验签。错误本身不会让订单变为已支付，付款只认验签通过的查单结果或回调
   if (r.status < 300 || r.get('wechatpay-signature')) await verify(r.get, r.raw);
   let data = {};
@@ -140,4 +140,4 @@ function mismatch(tx, order) {
   return '';
 }
 
-module.exports = { configured, problems, prepay, payParams, query, close, refund, refundNo, queryRefund, parseNotify, mismatch, cents, expireAt };
+module.exports = { call, configured, problems, prepay, payParams, query, close, refund, refundNo, queryRefund, parseNotify, mismatch, cents, expireAt };

@@ -1,8 +1,10 @@
+const transfers = require('./shareholder-transfers.cjs');
+const shareholders = require('./shareholders.cjs');
 const crypto = require('node:crypto');
 const DAY = 86400000;
 const clone = x => JSON.parse(JSON.stringify(x));
 function fail(message, status = 400) { throw Object.assign(new Error(message), { status }); }
-function init(db) { db.incomeRules ||= []; db.incomePlans ||= []; db.earnings ||= []; db.poolSettlements ||= []; db.payouts ||= []; }
+function init(db) { shareholders.init(db); db.incomeRules ||= []; db.incomePlans ||= []; db.earnings ||= []; db.poolSettlements ||= []; db.payouts ||= []; }
 function integer(v, min, max, label) { if (!Number.isInteger(v) || v < min || v > max) fail(`${label}须为${min}至${max}的整数`); return v; }
 function amount(v, max, label) { if (typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v > max || Math.abs(v * 100 - Math.round(v * 100)) > 0.000001) fail(label + '无效，最多保留两位小数'); return v; }
 function part(v, periodic) {
@@ -92,6 +94,8 @@ function settlePool(db, now=Date.now(), limit=400) {
   let start=Math.max(beijingStart(rule.startDate),lastSettledEnd(db)),settled=0;
   while(settled<limit) {
     const period=nextPeriod(rule,start);if(period.end>now)break;
+    const cutover=shareholders.rule(db).activatedAt;
+    if(cutover&&period.end>Date.parse(shareholders.dateOf(Date.parse(cutover))+'T00:00:00+08:00'))break;
     const id='pool:'+period.key;
     if(!db.poolSettlements.some(s=>s.id===id)) {
       const win=activityWindow(rule,period.start),holders=poolHolders(db,period.end,win?win.start:-Infinity),amount=poolCents(db,rule,period),rows=allocate(amount,holders),createdAt=new Date(now).toISOString();
@@ -105,6 +109,7 @@ function settlePool(db, now=Date.now(), limit=400) {
   return settled;
 }
 function managePool(db, body, actor, now=Date.now()) {
+  if(body.enabled&&shareholders.rule(db).activatedAt)fail('已切换为股东按份数分配，不能同时开启旧分红池');
   const previous=poolRule(db),today=beijingDate(now);
   if (body.revision !== previous.revision) fail('规则已被其他管理员修改，请刷新后再编辑',409);
   if (typeof body.enabled !== 'boolean') fail('请设置分红池开关');
@@ -136,7 +141,7 @@ function poolOverview(db, now=Date.now()) {
 }
 function manage(db, method, productId, body, actor) {
   init(db);
-  if (method==='GET' && !productId) return { rules:db.incomeRules, referral:referralRule(db), pool:poolRule(db), poolOverview:poolOverview(db), products:db.products.filter(p=>p.packagePlans?.length).map(p=>({id:p.id,name:p.name,price:p.memberPrice??p.price,enabled:p.enabled})) };
+  if (method==='GET' && !productId) return { rules:db.incomeRules, referral:referralRule(db), pool:poolRule(db), poolOverview:poolOverview(db), shareholders:shareholders.overview(db), products:db.products.filter(p=>p.packagePlans?.length).map(p=>({id:p.id,name:p.name,price:p.memberPrice??p.price,enabled:p.enabled})) };
   if (method!=='PUT' || !productId) fail('方法不允许',405);
   if (productId === 'referral') return manageReferral(db, body, actor);
   if (productId === 'pool') return managePool(db, body, actor);
@@ -151,7 +156,7 @@ function manage(db, method, productId, body, actor) {
   db.audit ||= [];db.audit.unshift({id:crypto.randomUUID(),actor,resource:'incomeRules',target:productId,method:'PUT',revision:row.revision,createdAt:row.updatedAt});
   return row;
 }
-function publicRules(db) { init(db);if(poolRule(db).enabled)return [];return db.incomeRules.filter(r=>r.static.enabled).map(r=>({productId:r.productId,revision:r.revision,static:r.static,refundPolicy:r.refundPolicy})); }
+function publicRules(db) { init(db);if(poolRule(db).enabled||(shareholders.enabled(db)||!!shareholders.rule(db).activatedAt))return [];return db.incomeRules.filter(r=>r.static.enabled).map(r=>({productId:r.productId,revision:r.revision,static:r.static,refundPolicy:r.refundPolicy})); }
 function snapshot(db, order) {
   init(db);
   const rule=db.incomeRules.find(r=>r.productId===order.productId),referral=referralRule(db),buyer=db.users.find(u=>u.id===order.userId),s={};
@@ -164,14 +169,14 @@ function snapshot(db, order) {
       if(!next||seen.has(next.id))break;
       seen.add(next.id);ancestors.push({id:next.id,enabled:!next.disabled&&next.incomeAccess?.dynamic!==false});user=next;
     }
-    const frozen=clone(rule);if(poolRule(db).enabled||buyer?.incomeAccess?.static===false)frozen.static={...frozen.static,enabled:false};
-    Object.assign(s,{rule:frozen,ancestors});
+    const frozen=clone(rule);if(poolRule(db).enabled||(shareholders.enabled(db)||!!shareholders.rule(db).activatedAt)||buyer?.incomeAccess?.static===false)frozen.static={...frozen.static,enabled:false};
+    Object.assign(s,{rule:frozen,ancestors,shareholderRequired:!!shareholders.rule(db).activatedAt});
   }
   if(referral.enabled) {
     const inviter=db.users.find(u=>u.id===buyer?.inviterId);
     const inScope=referral.scope==='all'||!!order.product?.packagePlans?.length;
     const fresh=!referral.durationDays||Date.now()-Date.parse(buyer?.createdAt)<=referral.durationDays*DAY;
-    if(inviter&&inviter.id!==order.userId&&!inviter.disabled&&inviter.incomeAccess?.dynamic!==false&&inScope&&fresh)s.referral={rule:clone(referral),inviterId:inviter.id};
+    if(inviter&&inviter.id!==order.userId&&!inviter.disabled&&inviter.incomeAccess?.dynamic!==false&&inScope&&fresh)s.referral={rule:clone(referral),inviterId:inviter.id,shareholderRequired:(shareholders.enabled(db)||!!shareholders.rule(db).activatedAt)};
   }
   if(s.rule||s.referral)order.incomeSnapshot=s;
 }
@@ -199,7 +204,8 @@ function addReferralPlan(db,order,referral) {
   if(db.incomePlans.some(p=>p.id===id))return;
   const stamp=rule.trigger==='paid'?order.paidAt:order.completedAt;
   if(!stamp||(rule.trigger==='completed'&&order.status!=='completed'))return;
-  if(rule.requireCard&&!holdsCard(db,referral.inviterId,Date.parse(order.paidAt)+1)){referral.skipped='inviterNoCard';return;}
+  if(referral.shareholderRequired&&!referral.shareholderEligibleAtPayment){referral.skipped='notShareholder';return;}
+  if(!referral.shareholderRequired&&rule.requireCard&&!holdsCard(db,referral.inviterId,Date.parse(order.paidAt)+1)){referral.skipped='inviterNoCard';return;}
   delete referral.skipped;
   const tier=isFirstOrder(db,order,rule)?'first':'later',percent=tier==='first'?rule.firstPercent:rule.laterPercent;
   const cents=centsFor({mode:'percent',value:percent},order.total);if(!cents)return;
@@ -211,12 +217,23 @@ function activate(db,order) {
   if(!s||!isPaid(order))return;
   if(s.rule) {
     addPlan(db,order,'static',s.rule.static,order.userId);
-    s.rule.dynamic.forEach((part,i)=>{if(s.ancestors[i]?.enabled)addPlan(db,order,'dynamic',part,s.ancestors[i].id,i+1)});
+    s.rule.dynamic.forEach((part,i)=>{
+      const ancestor=s.ancestors[i];
+      if(!ancestor?.enabled)return;
+      if(s.shareholderRequired){
+        ancestor.shareholderEligibleAtPayment??=shareholders.eligible(db,db.users.find(u=>u.id===ancestor.id),Date.parse(order.paidAt));
+        if(!ancestor.shareholderEligibleAtPayment)return;
+      }
+      addPlan(db,order,'dynamic',part,ancestor.id,i+1);
+    });
   }
-  if(s.referral)addReferralPlan(db,order,s.referral);
+  if(s.referral){
+    if(s.referral.shareholderRequired)s.referral.shareholderEligibleAtPayment??=shareholders.eligible(db,db.users.find(u=>u.id===s.referral.inviterId),Date.parse(order.paidAt));
+    addReferralPlan(db,order,s.referral);
+  }
 }
 function settle(db,now=Date.now(),limit=2000) {
-  init(db);let posted=settlePool(db,now);
+  init(db);let posted=settlePool(db,now)+shareholders.settle(db,now);
   const keys=new Set(db.earnings.map(e=>e.accrualKey).filter(Boolean));
   for(const p of db.incomePlans) {
     if(p.status!=='active')continue;
@@ -254,7 +271,7 @@ function summary(db,userId) {
   init(db);const records=db.earnings.filter(e=>e.userId===userId);
   const sum=type=>records.filter(e=>type===undefined||e.type===type).reduce((n,e)=>n+recordCents(e),0)/100;
   const plans=db.incomePlans.filter(p=>p.userId===userId&&p.status==='active'),b=balanceOf(db,userId);
-  return {total:sum(),static:sum('static'),dynamic:sum('dynamic'),pending:plans.reduce((n,p)=>n+(p.periods-p.posted)*p.amountCents,0)/100,paidOut:b.paidOutCents/100,available:b.availableCents/100};
+  return {total:sum(),static:sum('static'),dynamic:sum('dynamic'),pending:plans.reduce((n,p)=>n+(p.periods-p.posted)*p.amountCents,0)/100,paidOut:b.paidOutCents/100,available:b.availableCents/100,transferring:b.reservedCents/100};
 }
 // 收益兑现：门店线下把收益付给会员后在后台登记，系统只记账、不转账。
 // 待兑现 = 累计净收益（入账 − 退款冲回）− 已兑现（未撤销）；登记不能超过待兑现，登记有误可撤销（保留原记录和原因）。
@@ -263,14 +280,15 @@ function balanceOf(db,userId) {
   init(db);
   const earnedCents=db.earnings.filter(e=>e.userId===userId).reduce((n,e)=>n+recordCents(e),0);
   const paidOutCents=db.payouts.filter(p=>p.userId===userId&&p.status==='paid').reduce((n,p)=>n+p.amountCents,0);
-  return {earnedCents,paidOutCents,availableCents:earnedCents-paidOutCents};
+  const reservedCents=transfers.reserved(db,userId);
+  return {earnedCents,paidOutCents,reservedCents,availableCents:earnedCents-paidOutCents-reservedCents};
 }
 function payoutOverview(db) {
   init(db);const earned=new Map(),paid=new Map(),last=new Map();
   for(const e of db.earnings)earned.set(e.userId,(earned.get(e.userId)||0)+recordCents(e));
   for(const p of db.payouts)if(p.status==='paid'){paid.set(p.userId,(paid.get(p.userId)||0)+p.amountCents);if(!last.has(p.userId)||p.createdAt>last.get(p.userId))last.set(p.userId,p.createdAt)}
   const users=new Map(db.users.map(u=>[u.id,u]));
-  const members=db.users.filter(u=>!u.mergedInto&&(earned.has(u.id)||paid.has(u.id))).map(u=>{const e=earned.get(u.id)||0,p=paid.get(u.id)||0;return {userId:u.id,name:u.name||'',phone:u.phone||'',disabled:!!u.disabled,earned:e/100,paidOut:p/100,available:(e-p)/100,lastPayoutAt:last.get(u.id)||''}}).sort((a,b)=>b.available-a.available);
+  const members=db.users.filter(u=>!u.mergedInto&&(earned.has(u.id)||paid.has(u.id))).map(u=>{const e=earned.get(u.id)||0,p=paid.get(u.id)||0;return {userId:u.id,name:u.name||'',phone:u.phone||'',disabled:!!u.disabled,earned:e/100,paidOut:p/100,available:(e-p-transfers.reserved(db,u.id))/100,lastPayoutAt:last.get(u.id)||''}}).sort((a,b)=>b.available-a.available);
   const total=k=>Math.round(members.reduce((n,m)=>n+Math.round(m[k]*100),0))/100;
   return {members,payouts:db.payouts.slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))).map(p=>({...p,userName:users.get(p.userId)?.name||'',methodName:PAYOUT_METHODS[p.method]||p.method})),totals:{earned:total('earned'),paidOut:total('paidOut'),available:total('available')},methods:PAYOUT_METHODS};
 }
@@ -291,7 +309,7 @@ function managePayout(db,body,actor,now=Date.now()) {
     db.payouts.unshift(row);log(row,'payout');return row;
   }
   if(body.action==='cancel') {
-    const row=db.payouts.find(p=>p.id===body.id);if(!row)fail('兑现记录不存在',404);
+    const row=db.payouts.find(p=>p.id===body.id);if(row?.source==='wechatTransfer')fail('已实际到账的微信转账不能撤销记账');if(!row)fail('兑现记录不存在',404);
     if(row.status!=='paid')fail('这笔兑现已经撤销');
     const reason=note(body.reason);if(!reason)fail('请填写撤销原因');
     Object.assign(row,{status:'cancelled',cancelledAt:at,cancelledBy:actor,cancelReason:reason});log(row,'cancel');return row;

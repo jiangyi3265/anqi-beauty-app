@@ -109,7 +109,7 @@ const selectionFor = product => { const plan = product.packagePlans[0]; return {
   assert.equal((await req('/me', 'GET', undefined, alice.token)).vipLevel?.name, gold.name.replace(/套餐$/, '') + '会员', '未付款的订单不提升等级');
   await admin('orders/' + up.id, 'POST', { action: 'confirmPayment', note: '门店收款' });
   me = await req('/me', 'GET', undefined, alice.token); assert.equal(me.vipLevel?.name, platinum.name.replace(/套餐$/, '') + '会员');
-  await admin('orders/' + up.id, 'POST', { action: 'refund', note: '退卡' });
+  await admin('orders/' + up.id, 'POST', { action: 'refund', note: '退卡', refundConfirmed:true, refundAmount:up.total, refundedAt:(await admin('orders')).find(o=>o.id===up.id).paidAt, refundMethod:'隔离测试', refundReference:'test-'+up.id });
   me = await req('/me', 'GET', undefined, alice.token); assert.equal(me.vipLevel?.name, gold.name.replace(/套餐$/, '') + '会员');
   checks.push('会员等级取持有中的最高一档：未付款不算，确认收款后升级，整单退款后回落');
 
