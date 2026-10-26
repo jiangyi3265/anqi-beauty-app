@@ -39,13 +39,23 @@ export default function decorateScreen(base) {
     computed: {
       ...base.computed,
       brandName(){return this.config.name||BRAND_NAME},
+      memberSubtitle(){
+        if(!this.me.id)return '登录后查看订单与服务'
+        if(this.membershipCard?.preview)return '测试会员 · 仅展示，不含消费权益'
+        return this.me.memberCode?'会员编号 '+this.me.memberCode:'欢迎来到'+this.brandName
+      },
+      memberFeatureTitle(){return this.shareholderMode?'今日公共积分池':this.me.id?(this.membershipCard?.name||'VIP服务套餐'):'VIP服务套餐'},
+      memberFeatureNote(){
+        if(this.shareholderMode)return '当日分配总额 · '+(this.dailyPool.date||'今日')
+        if(this.membershipCard?.preview)return '测试会员 · 仅展示，不含消费权益'
+        return this.me.vipLevel?'已开通 · 按项目预约核销':'按需选择 · 分次预约'
+      },
       ui(){return { ...UI_ASSETS,room:this.config.homeImage||UI_ASSETS.room,silk:this.config.themeImage||UI_ASSETS.silk,portrait:this.config.mallBanner||UI_ASSETS.portrait,booking:this.config.bookingImage||this.config.homeImage||UI_ASSETS.room,alliance:this.config.allianceImage||this.config.themeImage||UI_ASSETS.silk }},
       memberEntries(){return this.allMemberEntries.filter(entry=>entry.page!=='share'||(this.config.marketingEnabled!==false&&(!this.shareholderMode||this.shareAllowed)))},
       quickEntries(){return [
         {label:this.config.shortcutTrialLabel||'体验卡',page:'gifts',query:'?type=trial',icon:'ticket'},
         {label:this.config.shortcutVipLabel||'贵宾卡',page:'gifts',query:'?type=vip',icon:'crown'},
-        {label:this.config.shortcutShareLabel||'邀请码',page:'share',icon:'code'},
-        {label:this.config.shortcutAppointmentLabel||'立即预约',page:'appointments',icon:'calendar'}
+        {label:this.config.shortcutShareLabel||'邀请好友',page:'share',icon:'share'}
       ].filter(entry=>entry.page!=='share'||(this.config.marketingEnabled!==false&&(!this.shareholderMode||this.shareAllowed)))},
       selectedVisualProduct(){const image=this.selectedSku?.image;return image?{...this.product,image,visualMode:'image'}:this.product},
       homeBanners(){return this.homeModules.filter(m=>m.type==='banner')},
