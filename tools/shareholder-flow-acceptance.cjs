@@ -22,14 +22,16 @@ async function start(){const socket=net.createServer().listen(0,'127.0.0.1');awa
  db.users=users.map((id,i)=>({id,name:'测试'+i,openid:'mock-'+id,points:5000,createdAt:new Date(now).toISOString()}));
  db.sessions=users.map((userId,i)=>({id:'test-token-'+i,userId,role:'user',expires:now+3600000}));
  db.products.push(...[1,2,3,4].map(i=>({id:'trial-test-'+i,name:'测试体验'+i,kind:'service',trial:true,trialOnly:true,enabled:true,status:'published',stock:10,price:100})),{id:'paid-test',name:'普通服务',kind:'service',enabled:true,status:'published',stock:10,price:100});
- db.orders.push({id:'proof',userId:users[0],number:'proof',productId:'paid-test',product:{name:'普通服务'},paymentStatus:'paid',status:'ready',paidAt:new Date(now-10000).toISOString(),createdAt:new Date(now-10000).toISOString(),total:100});
+ db.orders.push({id:'proof',userId:users[0],number:'proof',productId:'paid-test',product:{name:'测试套餐',price:6980,packagePlans:[{id:'vip'}]},paymentStatus:'paid',status:'ready',paidAt:new Date(now-10000).toISOString(),createdAt:new Date(now-10000).toISOString(),total:100});
  db.config.poolReward={enabled:false};
  fs.writeFileSync(file,JSON.stringify(db));await start();
  const a='test-token-0',b='test-token-1';
  await req('/admin/shareholders','GET',undefined,a,false,403);
- await req('/admin/shareholders/program','POST',{enabled:true,revision:0,settleTime:'23:59',plans:[{id:'one',name:'分配方案',units:1,enabled:true}]},null,true);
+ const program=(await req('/admin/shareholders','GET',undefined,null,true)).rule;
+ await req('/admin/shareholders/program','POST',{...program,enabled:true,settleTime:'23:59'},null,true);
  assert.equal((await req('/share-code','GET',undefined,a)).locked,true);
- await req('/admin/shareholders/member','POST',{userId:users[0],approved:true,planId:'one',orderId:'proof',revision:0},null,true);
+ await req('/admin/shareholders/member','POST',{userId:users[0],approved:true,planId:'package-199800',orderId:'proof',revision:0},null,true,400);
+ await req('/admin/shareholders/member','POST',{userId:users[0],approved:true,planId:'package-6980',orderId:'proof',revision:0},null,true);
  assert.equal((await req('/me','GET',undefined,a)).canShare,true);
  const adminMembers=await req('/admin/legacyMembers','GET',undefined,null,true);
  assert.equal(adminMembers.members.find(m=>m.id===users[0]).canShare,true);
@@ -37,7 +39,7 @@ async function start(){const socket=net.createServer().listen(0,'127.0.0.1');awa
  const code=await req('/share-code','GET',undefined,a);assert.equal(code.code,'11111111');
  const bound=await req('/invite/bind','POST',{invite:'11111111'},b);assert.equal(bound.status,'bound');
  assert.equal(bound.user.inviterId,users[0]);
- const me=await req('/me','GET',undefined,a);assert.equal(me.points,5000);assert.equal(me.vipLevel,null);
+ const me=await req('/me','GET',undefined,a);assert.equal(me.points,5000);assert.ok(me.vipLevel);
  const today=new Date(now+8*3600000).toISOString().slice(0,10);
  await req('/admin/shareholders/pool','POST',{date:today,amount:7000,revision:0},null,true);
  assert.equal((await req('/bootstrap')).dailyPool.amount,7000);

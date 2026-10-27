@@ -11,6 +11,7 @@ const income = require('./income.cjs');
 const shareholders = require('./shareholders.cjs');
 const trialQuota = require('./trial-quota.cjs');
 const transfers = require('./shareholder-transfers.cjs');
+const wallet = require('./wallet.cjs');
 const legacyMembers = require('./legacy-members.cjs');
 const presentation = require('./presentation-config.cjs');
 const notifications = require('./notifications.cjs');
@@ -30,7 +31,7 @@ const sessions = new Map();
 let mysqlStore;
 // 会员等级：本人已付款、未退款、未取消的 VIP 套餐中价格最高的一档；没有则为空。分享资格在 canShare 中单独判断
 function vipLevel(u){const held=db.orders.filter(o=>o.userId===u.id&&o.product?.packagePlans?.length&&o.paymentStatus==='paid'&&o.refundStatus!=='refunded'&&!['cancelled','pending','aftersale'].includes(o.status));if(!held.length)return null;const top=held.reduce((a,o)=>Number(o.product.memberPrice??o.product.price)>Number(a.product.memberPrice??a.product.price)?o:a);const name=String(top.product.name||'VIP').replace(/套餐$/,'');return {name:name.endsWith('会员')?name:name+'会员',productId:top.productId,orderId:top.id}}
-const canShare = u => (shareholders.enabled(db)||shareholders.rule(db).activatedAt) ? shareholders.eligible(db,u) && u.incomeAccess?.dynamic !== false : !!vipLevel(u);
+const canShare = u => shareholders.eligible(db,u) && u.incomeAccess?.dynamic !== false;
 const publicUser=u=>({...Object.fromEntries(Object.entries(u).filter(([k])=>!['openid','unionid','session_key','wechatAppId','wechatLoginCodes','password','salt','hash','subscriptionCredits','adminNote','offlineRequestId','offlineFingerprint'].includes(k))),wechatBound:!!u.openid});
 const publicOrder = ({ referrerIdAtOrder, refundMethod, refundReference, refundRecordedAt, ...order }) => order;
 const publicRedemption = ({ deliveryNote, deliveryActor, ...redemption }) => redemption;
@@ -342,6 +343,11 @@ async function route(req, url, b) {
   }
   if (p.startsWith('/admin/')) {
     session(req, true); const [, , collection, key] = p.split('/');
+    if (collection === 'wallet') {
+      if (method === 'GET' && !key) return wallet.overview(db);
+      if (method !== 'POST') fail('方法不允许', 405);
+      return wallet.manage(db, key, b, req.headers['x-anqi-actor'] || 'admin');
+    }
     if (collection === 'upload' && method === 'POST') {
       const match = String(b.data || '').match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/); if (!match) fail('请上传 PNG、JPEG 或 WebP 图片');
       const bytes = Buffer.from(match[2], 'base64'); if (bytes.length > 5 * 1024 * 1024) fail('图片不能超过5MB');
@@ -447,7 +453,7 @@ async function route(req, url, b) {
       const o=db.orders.find(x=>x.id===key);if(!o)fail('订单不存在',404);
       if(['confirmPayment','cancel'].includes(b.action)&&o.status==='pending'&&o.wechatPay?.prepayId&&!req.wechatClosed)fail('订单支付状态确认中，请稍后重试',409);
       if(b.action==='refund'&&o.paymentMode==='wechat'&&!req.wechatRefund)fail('微信支付订单需原路退款，请稍后重试',409);
-      if(b.action==='confirmPayment'){if(o.status!=='pending')fail('只有待付款订单可确认收款');if(!text(b.note))fail('请填写线下收款凭证说明');o.status=o.product.kind==='goods'?'shipping':'ready';o.paymentStatus='paid';o.paymentMode='offline';o.paymentNote=text(b.note);o.paidAt=new Date().toISOString();notifications.enqueue(db,'orderPaid',o);const p=db.products.find(x=>x.id===o.productId);if(p)p.sold+=o.quantity;}
+      if(b.action==='confirmPayment'){if(o.status!=='pending')fail('只有待付款订单可确认收款');if(!text(b.note)&&b.confirmed!==true)fail('请确认已收到线下付款');o.status=o.product.kind==='goods'?'shipping':'ready';o.paymentStatus='paid';o.paymentMode='offline';o.paymentNote=text(b.note)||'门店确认收款';o.paidAt=new Date().toISOString();notifications.enqueue(db,'orderPaid',o);const p=db.products.find(x=>x.id===o.productId);if(p)p.sold+=o.quantity;}
       else if(b.action==='pickup'){vipPackages.pickup(o,b.entitlementId,b.expectedUsed,req.headers['x-anqi-actor']||'admin');}
       else if(b.action==='cancel'){if(o.status!=='pending')fail('只能取消未付款订单');o.status='cancelled';restore(o);}
       else if(b.action==='ship'){if(o.status!=='shipping')fail('订单不是待取货状态');if(!text(b.tracking))fail('请填写物流单号或取货说明');o.tracking=text(b.tracking);notifications.enqueue(db,'orderShipped',o);}
@@ -504,6 +510,12 @@ async function route(req, url, b) {
   }
   if (['/activities','/alliances','/rewards'].includes(p) && method === 'GET') return db[p.slice(1)].filter(x => x.enabled !== false);
   const u = user(req);
+  if (p === '/withdrawals') {
+    if (method === 'GET') return transfers.view(db, u.id).filter(row => row.source === 'withdrawal');
+    if (method !== 'POST') fail('方法不允许', 405);
+    income.settle(db);
+    return wallet.withdraw(db, u, b);
+  }
   if (p === '/invite/bind') {
     if (method !== 'POST') fail('方法不允许', 405);
     const result = bindInvite(u, b.invite);
@@ -521,7 +533,7 @@ async function route(req, url, b) {
     const dir=path.join(ROOT,'static/uploads');fs.mkdirSync(dir,{recursive:true});const filename=id()+'.'+(match[1]==='jpeg'?'jpg':match[1]);fs.writeFileSync(path.join(dir,filename),bytes);u.avatar='/static/uploads/'+filename;save();return {avatar:u.avatar};
   }
   if (p === '/share-code' && method === 'GET') {
-    // 启用股东规则后统一校验认证资格；会员编号仍用于核对身份。
+    // 专属邀请只向已付款且经后台认证的股东开放；会员编号仍用于核对身份。
     if(!canShare(u))return {locked:true,memberCode:u.id.slice(0,8).toUpperCase()};
     const code=u.id.slice(0,8).toUpperCase();const dir=path.join(ROOT,'static/uploads');fs.mkdirSync(dir,{recursive:true});
     const filename='share-'+u.id+'.png';const dest=path.join(dir,filename);
@@ -683,7 +695,7 @@ async function route(req, url, b) {
     const r = db.rewards.find(x => x.id === b.rewardId && x.enabled !== false); if (!r || r.stock < 1) fail('积分商品库存不足'); if ((u.points || 0) < r.points) fail('积分不足');
     u.points -= r.points; r.stock--; const row = { id: id(), userId: u.id, rewardId:r.id, name: r.name, points: r.points, status:'pendingPickup', createdAt: new Date().toISOString() }; db.redemptions.push(row); db.ledger.push({ id:id(), userId:u.id, amount:-r.points, name:'兑换'+r.name, createdAt:row.createdAt }); save(); return row;
   }
-  if (p === '/earnings-summary' && method === 'GET') {income.settle(db);return {...income.summary(db,u.id),dailyPool:shareholders.today(db,u.id),transfers:transfers.view(db,u.id),plans:income.customerPlans(db,u.id),payouts:income.customerPayouts(db,u.id)};}
+  if (p === '/earnings-summary' && method === 'GET') {income.settle(db);return {...income.summary(db,u.id),walletEnabled:wallet.enabled(db),walletUserId:u.id,withdrawalReady:wallet.enabled(db)&&require('./wechat-transfer.cjs').ready(),withdrawalLimits:wallet.withdrawalLimits(),dailyPool:shareholders.today(db,u.id),transfers:transfers.view(db,u.id),plans:income.customerPlans(db,u.id),payouts:income.customerPayouts(db,u.id)};}
   if (p === '/earnings' && method === 'GET') income.settle(db);
   if (p === '/orders' && method === 'GET') return db.orders.filter(x => x.userId === u.id).map(publicOrder);
   if (p === '/redemptions' && method === 'GET') return db.redemptions.filter(x => x.userId === u.id).map(publicRedemption);
@@ -715,7 +727,17 @@ const server = http.createServer(async (req,res) => {
     if(process.env.DB_READ_ONLY==='true' && !['GET','HEAD'].includes(req.method))fail('当前连接为只读模式，禁止修改服务器数据',403);
     if (url.pathname === '/api/pay/notify' && req.method === 'POST') { if (!WECHAT_PAY) fail('微信支付未开通',404); return wechatNotify(req,res); }
     if(url.pathname==='/api/transfer-notify'&&req.method==='POST'){let raw='';for await(const chunk of req){raw+=chunk;if(Buffer.byteLength(raw)>65536)fail('通知过大',400)}await wechatPay.parseNotify(req.headers,raw);res.statusCode=204;res.end();return;}
-    if (url.pathname.startsWith('/api/')) { const payload=['POST','PUT'].includes(req.method)?await body(req):{};let result=WECHAT_PAY?await wechatRoute(req,url,payload):undefined;if(result===undefined)result=await txn(()=>route(req,url,payload)); if(result?.httpStatus){res.statusCode=result.httpStatus;delete result.httpStatus;} res.setHeader('Content-Type','application/json; charset=utf-8'); res.setHeader('Cache-Control','no-store'); return res.end(JSON.stringify(result,(key,value)=>key==='incomeSnapshot'?undefined:value)); }
+    if (url.pathname.startsWith('/api/')) {
+      const payload = ['POST', 'PUT'].includes(req.method) ? await body(req) : {};
+      const result = await paymentOperation(req, url, payload, async () => {
+        const payment = WECHAT_PAY ? await wechatRoute(req, url, payload) : undefined;
+        return payment === undefined ? txn(() => route(req, url, payload)) : payment;
+      });
+      if (result?.httpStatus) { res.statusCode = result.httpStatus; delete result.httpStatus; }
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.end(JSON.stringify(result, (key, value) => key === 'incomeSnapshot' ? undefined : value));
+    }
     if (url.pathname === '/admin' || url.pathname.startsWith('/admin/')) fail('请使用若依管理端',404);
     const isStatic = url.pathname.startsWith('/static/');
     const base = isStatic ? path.join(ROOT,'static') : path.join(ROOT,'dist/build/h5');
@@ -727,6 +749,22 @@ const server = http.createServer(async (req,res) => {
     res.setHeader('Content-Type',mime[path.extname(file)] || 'application/octet-stream'); fs.createReadStream(file).pipe(res);
   } catch (e) { res.statusCode = e.status || 500; res.setHeader('Content-Type','application/json; charset=utf-8'); res.end(JSON.stringify({ error: e.status ? e.message : '服务器异常' })); if (!e.status) console.error(e); }
 });
+// 同一订单的预支付、取消与门店确认串行执行，防止预支付尚未保存时就被线下收款。
+// 微信回调仍按交易号幂等入账；网络请求期间不占用数据库事务。
+const paymentOperations = new Map();
+async function paymentOperation(req, url, payload, work) {
+  if (!WECHAT_PAY || req.method !== 'POST') return work();
+  const customer = url.pathname.match(/^\/api\/orders\/([^/]+)\/(pay|cancel)$/);
+  const admin = ['confirmPayment', 'cancel', 'refund'].includes(payload.action)
+    && url.pathname.match(/^\/api\/admin\/orders\/([^/]+)$/);
+  const orderId = customer?.[1] || admin?.[1];
+  if (!orderId) return work();
+  const previous = paymentOperations.get(orderId) || Promise.resolve();
+  const current = previous.catch(() => {}).then(work);
+  paymentOperations.set(orderId, current);
+  try { return await current; }
+  finally { if (paymentOperations.get(orderId) === current) paymentOperations.delete(orderId); }
+}
 // 每个请求在一个数据库事务里处理（文件库为串行队列）；调用微信接口前后各开一次事务，网络请求期间不占用事务
 function txn(fn){return mysqlStore?mysqlStore.run(async state=>{db=state;sessions.clear();for(const r of db.sessions||[])if(r.expires>Date.now())sessions.set(r.id,r);const value=await fn();db.sessions=[...sessions].map(([id,r])=>({id,...r}));return value}):runFile(fn);}
 const clone=v=>JSON.parse(JSON.stringify(v));
@@ -794,7 +832,6 @@ async function wechatRoute(req,url,b){
       expire();const u=user(req);const o=own('orders',orderId,u);
       if(o.paymentStatus==='paid')return {order:o};
       if(o.status!=='pending')fail('订单状态已变化');
-      if(o.paymentChoice==='offline')fail('该订单选择门店收银，请由门店确认收款');
       if(!(wechatPay.cents(o.total)>0))fail('0元订单无需在线支付，请联系门店确认');
       if(!u.openid||u.wechatAppId!==process.env.WECHAT_APPID)fail('请在小程序内使用微信登录后支付');
       if(Date.now()>wechatPay.expireAt(o)-60000)fail('订单已超过支付时间，请重新下单');
@@ -807,7 +844,6 @@ async function wechatRoute(req,url,b){
       const u=user(req);const o=own('orders',orderId,u);
       if(o.paymentStatus==='paid')return {order:o,paid:true};
       if(o.status!=='pending')fail('订单状态已变化');
-      if(o.paymentChoice==='offline')fail('该订单选择门店收银，请由门店确认收款');
       if(o.wechatPay?.prepayId!==prepayId){o.wechatPay={prepayId,prepayAt:new Date().toISOString(),expireAt:new Date(wechatPay.expireAt(o)).toISOString()};paymentAudit(o,{outcome:'prepay',source:'customer'});save();}
       return {order:o,payment:wechatPay.payParams(prepayId)};
     });
@@ -864,7 +900,14 @@ async function drainNotifications(){
 }
 let transferWorkerBusy=false;
 async function drainTransfers(){if(transferWorkerBusy)return;transferWorkerBusy=true;try{await transfers.drain(fn=>mysqlStore?mysqlStore.run(fn):runFile(()=>fn(db)))}finally{transferWorkerBusy=false}}
-async function start(){if(process.env.DB_NAME)mysqlStore=await require('./mysql-store.cjs')(seed());if(process.env.DB_READ_ONLY!=='true'){await migrateOnStart();await settleIncome();setInterval(()=>drainTransfers().catch(()=>{}),5000).unref();await reconcileWechat().catch(e=>console.error('微信支付对账失败',e.message));setInterval(()=>reconcileWechat().catch(e=>console.error('微信支付对账失败',e.message)),60000).unref();setInterval(()=>drainNotifications().catch(()=>{}),5000).unref();setInterval(()=>settleIncome().catch(e=>console.error('收益入账失败',e.message)),60000).unref();}server.listen(Number(process.env.PORT || 3000),HOST,() => { console.log('秀荣科技美肤业务服务: http://' + HOST + ':' + (process.env.PORT || 3000) + '/api/health'); console.log('演示开关：' + DEMO); });}start().catch(e=>{console.error(e);process.exit(1)});
+let rechargeWorkerBusy = false;
+async function drainRecharges() {
+  if (rechargeWorkerBusy) return;
+  rechargeWorkerBusy = true;
+  try { await wallet.drain(fn => mysqlStore ? mysqlStore.run(fn) : runFile(() => fn(db))); }
+  finally { rechargeWorkerBusy = false; }
+}
+async function start(){if(process.env.DB_NAME)mysqlStore=await require('./mysql-store.cjs')(seed());if(process.env.DB_READ_ONLY!=='true'){await migrateOnStart();await settleIncome();setInterval(()=>drainTransfers().catch(()=>{}),5000).unref();setInterval(()=>drainRecharges().catch(e=>console.error('充值核对失败',e.message)),5000).unref();await reconcileWechat().catch(e=>console.error('微信支付对账失败',e.message));setInterval(()=>reconcileWechat().catch(e=>console.error('微信支付对账失败',e.message)),60000).unref();setInterval(()=>drainNotifications().catch(()=>{}),5000).unref();setInterval(()=>settleIncome().catch(e=>console.error('收益入账失败',e.message)),60000).unref();}server.listen(Number(process.env.PORT || 3000),HOST,() => { console.log('秀荣科技美肤业务服务: http://' + HOST + ':' + (process.env.PORT || 3000) + '/api/health'); console.log('演示开关：' + DEMO); });}start().catch(e=>{console.error(e);process.exit(1)});
 
 
 

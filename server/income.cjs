@@ -37,7 +37,7 @@ function manageReferral(db, body, actor) {
   db.audit ||= [];db.audit.unshift({id:crypto.randomUUID(),actor,resource:'incomeRules',target:'referral',method:'PUT',revision:row.revision,createdAt:row.updatedAt});
   return row;
 }
-// 分红池（静态收益）：每个结算周期拿出一笔奖池，按办卡金额占比分给全部办卡会员。
+// 分红池（静态收益）：每个结算周期拿出一笔奖池，按办卡金额占比分给已认证股东。
 // 周期按北京时间划分，周期结束后结算一次；保存在 config，结算记录在 poolSettlements。
 // source: revenue=本期营业额（全部已付款订单）× 比例；sales=本期新增办卡金额 × 比例；fixed=固定基数 × 比例
 // activityDays>0：每 N 天一轮活动，每天只分给本轮开始以来办卡的会员（第1天当天，第2天第1–2天……），下一轮重新计算
@@ -66,9 +66,10 @@ function activityWindow(rule, periodStart) {
 }
 function poolHolders(db, end, since=-Infinity) {
   const weights=new Map();
+  const eligibleIds=new Set(db.users.filter(u=>u.incomeAccess?.static!==false&&shareholders.eligible(db,u,end)).map(u=>u.id));
   for(const o of db.orders||[]) {
     if(!o.product?.packagePlans?.length||!heldAt(o,end)||Date.parse(o.paidAt)<since)continue;
-    const user=db.users.find(u=>u.id===o.userId);if(!user||user.disabled||user.incomeAccess?.static===false)continue;
+    if(!eligibleIds.has(o.userId))continue;
     const cents=Math.round(Number(o.total)*100);if(Number.isSafeInteger(cents)&&cents>0)weights.set(o.userId,(weights.get(o.userId)||0)+cents);
   }
   return weights;
@@ -149,7 +150,7 @@ function manage(db, method, productId, body, actor) {
   const previous=db.incomeRules.find(r=>r.productId===productId);
   if (body.revision !== (previous?.revision||0)) fail('规则已被其他管理员修改，请刷新后再编辑',409);
   if (!['reverse','retain'].includes(body.refundPolicy)) fail('请选择退款收益处理方式');
-  if (!Array.isArray(body.dynamic) || body.dynamic.length>10) fail('动态收益最多配置10个邀请层级');
+  if (!Array.isArray(body.dynamic) || body.dynamic.length>1) fail('邀请收益只支持直接推荐人一级');
   const dynamic=body.dynamic.map((r,i)=>({level:i+1,...part(r,false)}));
   const row={id:previous?.id||crypto.randomUUID(),productId,revision:(previous?.revision||0)+1,static:part(body.static,true),dynamic,refundPolicy:body.refundPolicy,updatedAt:new Date().toISOString(),actor};
   if(previous)Object.assign(previous,row);else db.incomeRules.push(row);
@@ -161,22 +162,23 @@ function snapshot(db, order) {
   init(db);
   const rule=db.incomeRules.find(r=>r.productId===order.productId),referral=referralRule(db),buyer=db.users.find(u=>u.id===order.userId),s={};
   if(rule) {
-    // 推荐奖励启用后替代套餐中的多级动态收益，避免同一订单重复奖励
+    // 推荐奖励启用后替代套餐动态收益；新订单最多保留直接推荐人一级。
     const seen=new Set([order.userId]),ancestors=[];
     let user=buyer;
-    for(let i=0;!referral.enabled&&i<rule.dynamic.length;i++) {
+    for(let i=0;!referral.enabled&&i<Math.min(rule.dynamic.length,1);i++) {
       const next=db.users.find(u=>u.id===user?.inviterId);
       if(!next||seen.has(next.id))break;
       seen.add(next.id);ancestors.push({id:next.id,enabled:!next.disabled&&next.incomeAccess?.dynamic!==false});user=next;
     }
-    const frozen=clone(rule);if(poolRule(db).enabled||(shareholders.enabled(db)||!!shareholders.rule(db).activatedAt)||buyer?.incomeAccess?.static===false)frozen.static={...frozen.static,enabled:false};
-    Object.assign(s,{rule:frozen,ancestors,shareholderRequired:!!shareholders.rule(db).activatedAt});
+    const frozen=clone(rule);frozen.dynamic=frozen.dynamic.slice(0,1);
+    if(poolRule(db).enabled||(shareholders.enabled(db)||!!shareholders.rule(db).activatedAt)||buyer?.incomeAccess?.static===false)frozen.static={...frozen.static,enabled:false};
+    Object.assign(s,{rule:frozen,ancestors,shareholderRequired:true});
   }
   if(referral.enabled) {
     const inviter=db.users.find(u=>u.id===buyer?.inviterId);
     const inScope=referral.scope==='all'||!!order.product?.packagePlans?.length;
     const fresh=!referral.durationDays||Date.now()-Date.parse(buyer?.createdAt)<=referral.durationDays*DAY;
-    if(inviter&&inviter.id!==order.userId&&!inviter.disabled&&inviter.incomeAccess?.dynamic!==false&&inScope&&fresh)s.referral={rule:clone(referral),inviterId:inviter.id,shareholderRequired:(shareholders.enabled(db)||!!shareholders.rule(db).activatedAt)};
+    if(inviter&&inviter.id!==order.userId&&!inviter.disabled&&inviter.incomeAccess?.dynamic!==false&&inScope&&fresh)s.referral={rule:clone(referral),inviterId:inviter.id,shareholderRequired:true};
   }
   if(s.rule||s.referral)order.incomeSnapshot=s;
 }
@@ -216,7 +218,9 @@ function activate(db,order) {
   init(db);const s=order.incomeSnapshot;
   if(!s||!isPaid(order))return;
   if(s.rule) {
-    addPlan(db,order,'static',s.rule.static,order.userId);
+    if(s.rule.static.enabled&&s.shareholderRequired)
+      s.staticEligibleAtPayment??=shareholders.eligible(db,db.users.find(u=>u.id===order.userId),Date.parse(order.paidAt));
+    if(!s.shareholderRequired||s.staticEligibleAtPayment)addPlan(db,order,'static',s.rule.static,order.userId);
     s.rule.dynamic.forEach((part,i)=>{
       const ancestor=s.ancestors[i];
       if(!ancestor?.enabled)return;

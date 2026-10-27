@@ -29,10 +29,10 @@ test('微信每日转账：签名、到账确认、防重、失败重试和人�
   const provider = require('../server/wechat-transfer.cjs');
   const transfers = require('../server/shareholder-transfers.cjs');
   const income = require('../server/income.cjs');
-  let bills, calls, queryState, badSignature, wrongAmount, missing, authorized;
+  let bills, calls, queryState, badSignature, wrongAmount, missing, authorized, loseResponse;
   function reset() {
     bills = new Map(); calls = []; queryState = 'WAIT_USER_CONFIRM';
-    badSignature = false; wrongAmount = false; missing = false; authorized = false;
+    badSignature = false; wrongAmount = false; missing = false; authorized = false; loseResponse = false;
     process.env.WECHAT_TRANSFER_MODE = 'confirm';
   }
   reset();
@@ -49,6 +49,7 @@ test('微信每日转账：签名、到账确认、防重、失败重试和人�
     } else if (options.method === 'POST') {
       assert.equal(options.headers['Wechatpay-Serial'], env.WECHAT_PAY_PUBLIC_KEY_ID);
       bills.set(body.out_bill_no, body);
+      if (loseResponse) { loseResponse = false; throw new Error('测试：微信已受理，响应途中丢失'); }
       data = { out_bill_no: body.out_bill_no, state: 'WAIT_USER_CONFIRM', package_info: 'test-package' };
     } else {
       const billNo = pathname.split('/').pop(), bill = bills.get(billNo);
@@ -119,6 +120,52 @@ test('微信每日转账：签名、到账确认、防重、失败重试和人�
       const switched=fixture();const row=switched.shareholderTransfers[0];
       Object.assign(row,{attempts:1,retrySameBill:true,appid:'another-app',mchid:env.WECHAT_PAY_MCHID});
       await drain(switched);assert.equal(row.status,'blocked');assert.equal(calls.length,0);
+    });
+    await t.test('受理后响应丢失：按原单和原参数恢复收款按钮，不重复提现', async () => {
+      reset(); const db = fixture(); loseResponse = true;
+      await drain(db); assert.equal(db.shareholderTransfers[0].status, 'unknown');
+      assert.equal(income.balanceOf(db, 'user-test').reservedCents, 10000);
+      pollAgain(db); await drain(db);
+      assert.equal(transfers.view(db, 'user-test')[0].confirmation.package, 'test-package');
+      const sent = calls.filter(c => c.method === 'POST');
+      assert.equal(sent.length, 2); assert.deepEqual(sent[0].body, sent[1].body);
+      pollAgain(db); queryState = 'SUCCESS'; await drain(db); pollAgain(db); await drain(db);
+      assert.equal(db.payouts.length, 1);
+    });
+    await t.test('受理未出款时继续原单重试，充值后可继续处理', async () => {
+      reset(); const db = fixture(); queryState = 'ACCEPTED'; await drain(db);
+      const bill = db.shareholderTransfers[0].billNo;
+      pollAgain(db); await drain(db);
+      pollAgain(db); queryState = 'WAIT_USER_CONFIRM'; await drain(db);
+      assert.equal(db.shareholderTransfers[0].billNo, bill);
+      assert.equal(db.shareholderTransfers[0].status, 'waiting');
+      assert.equal(calls.filter(c => c.method === 'POST').length, 2);
+    });
+    await t.test('已受理后资料变化仍查原单，成功回执不会因会员停用而卡住', async () => {
+      reset(); const db = fixture(); queryState = 'ACCEPTED'; await drain(db);
+      db.users[0].disabled = true; pollAgain(db); await drain(db);
+      assert.equal(db.shareholderTransfers[0].status, 'unknown');
+      assert.equal(calls.filter(c => c.method === 'POST').length, 1);
+      pollAgain(db); queryState = 'SUCCESS'; await drain(db);
+      assert.equal(db.payouts.length, 1); assert.equal(db.shareholderTransfers[0].status, 'paid');
+    });
+    await t.test('锁款处理中可原单续办；超过查单期限保留占用，不冒险重发', async () => {
+      reset(); const db = fixture(); queryState = 'PROCESSING'; await drain(db);
+      pollAgain(db); await drain(db);
+      assert.equal(calls.filter(c => c.method === 'POST').length, 2);
+      queryState = 'TRANSFERING'; pollAgain(db); await drain(db);
+      assert.ok(transfers.view(db, 'user-test')[0].confirmation);
+      assert.equal(transfers.prepare(db, Date.now() + 31 * 86400000), null);
+      assert.equal(db.shareholderTransfers[0].status, 'blocked');
+      assert.match(db.shareholderTransfers[0].error, /查单期限/);
+      assert.equal(income.balanceOf(db, 'user-test').reservedCents, 10000);
+    });
+    await t.test('微信失败回执省略选填openid可释放占用，错误账号仍拒绝', async () => {
+      reset(); const db = fixture(); await drain(db); const row = db.shareholderTransfers[0];
+      const result = { out_bill_no: row.billNo, appid: row.appid, mch_id: row.mchid, transfer_amount: row.amountCents, state: 'FAIL' };
+      assert.throws(() => transfers.apply(db, row.id, { ...result, openid: 'wrong-user' }), /不一致/);
+      transfers.apply(db, row.id, result);
+      assert.equal(income.balanceOf(db, 'user-test').availableCents, 10000);
     });
     await t.test('授权前先确认，已有有效授权复用；大额真实姓名加密', async () => {
       reset(); process.env.WECHAT_TRANSFER_MODE = 'authorized';

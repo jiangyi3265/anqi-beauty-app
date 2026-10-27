@@ -20,18 +20,22 @@ function problems() {
 }
 const ready = () => config().enabled && problems().length === 0;
 const query = billNo => pay.call('GET', base + '/transfer-bills/out-bill-no/' + encodeURIComponent(billNo));
-async function send(job, user) {
+async function send(job, user, saveRequest = async () => {}) {
   const c = config();
   if (!ready()) throw new Error('微信转账尚未配置完成');
+  if (job.providerRequest) {
+    const request = job.providerRequest;
+    return pay.call('POST', request.path, request.body, request.headers);
+  }
   if (!job.openid || (user.wechatAppId && user.wechatAppId !== c.appid)) throw new Error('收款微信账号尚未绑定或小程序不一致');
   const body = { appid: c.appid, out_bill_no: job.billNo, transfer_scene_id: c.scene, openid: job.openid, transfer_amount: job.amountCents,
-    transfer_remark: '每日分配 ' + job.date, notify_url: c.notifyUrl, transfer_scene_report_infos: c.reports };
+    transfer_remark: job.source === 'withdrawal' ? '会员余额提现' : '每日分配 ' + job.date, notify_url: c.notifyUrl, transfer_scene_report_infos: c.reports };
   if (job.amountCents >= 200000) {
     if (!user.name || /^微信用户/.test(user.name)) throw new Error('本笔金额需先核对收款人真实姓名');
     body.user_name = crypto.publicEncrypt({ key: fs.readFileSync(process.env.WECHAT_PAY_PUBLIC_KEY_FILE), oaepHash: 'sha1', padding: crypto.constants.RSA_PKCS1_OAEP_PADDING }, Buffer.from(user.name)).toString('base64');
   }
   let path = base + '/transfer-bills';
-  if (c.mode === 'authorized') {
+  if ((job.transferMode || c.mode) === 'authorized') {
     const authorizationNo = 'A' + crypto.createHash('sha256').update(c.appid + job.userId + job.openid).digest('hex').slice(0,31);
     let authorization;
     try { authorization = await pay.call('GET', base + '/user-confirm-authorization/out-authorization-no/' + authorizationNo); }
@@ -45,6 +49,10 @@ async function send(job, user) {
       body.authorization_info = { out_authorization_no: authorizationNo, user_display_name: '会员' + job.userId.slice(0,8), authorization_notify_url: c.notifyUrl };
     }
   }
-  return pay.call('POST', path, body, { 'Wechatpay-Serial': process.env.WECHAT_PAY_PUBLIC_KEY_ID });
+  const request = { path, body, headers: { 'Wechatpay-Serial': process.env.WECHAT_PAY_PUBLIC_KEY_ID } };
+  // 在网络请求前持久化原参数；响应丢失时沿用原单恢复收款确认信息。
+  await saveRequest(request);
+  job.providerRequest = request;
+  return pay.call('POST', path, body, request.headers);
 }
 module.exports = { config, ready, problems, send, query };

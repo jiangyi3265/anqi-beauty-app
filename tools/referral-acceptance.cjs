@@ -11,7 +11,10 @@ let seq=0;
 function order(db,{productId='kit',total=1000,userId='buyer',paidAt=new Date(Date.parse('2026-01-01T00:00:00Z')+(seq++)*1000).toISOString()}={}){
   const product=db.products.find(p=>p.id===productId);
   const o={id:'o'+seq,userId,productId,product:JSON.parse(JSON.stringify(product)),total,status:'ready',paymentStatus:'paid',paidAt};
-  income.snapshot(db,o);db.orders.push(o);return o;
+  income.snapshot(db,o);
+  // 旧快照仍按创建时规则结算，认证股东的新单另由股东验收覆盖。
+  if(o.incomeSnapshot?.referral)o.incomeSnapshot.referral.shareholderRequired=false;
+  db.orders.push(o);return o;
 }
 const referralPlans=db=>db.incomePlans.filter(p=>p.source==='referral');
 
@@ -30,11 +33,11 @@ const referralPlans=db=>db.incomePlans.filter(p=>p.source==='referral');
   assert.match(db.earnings[0].name,/推荐奖励（首单 50%）/);assert.match(db.earnings[1].name,/推荐奖励（后续订单 10%）/);
   checks.push('direct referrer only: first order 50%, later orders 10%, idempotent, labelled in the ledger');
 
-  db=fixture();income.manage(db,'PUT','vip',{revision:0,static:part({periods:1,intervalDays:1}),dynamic:[part({value:5}),part({value:2})],refundPolicy:'reverse'},'tester');
+  db=fixture();income.manage(db,'PUT','vip',{revision:0,static:part({periods:1,intervalDays:1}),dynamic:[part({value:5})],refundPolicy:'reverse'},'tester');
   income.manage(db,'PUT','referral',referral(),'tester');
   const vipOrder=order(db,{productId:'vip',total:6980});income.activate(db,vipOrder);
-  assert.equal(db.incomePlans.filter(p=>p.type==='static').length,1);assert.equal(db.incomePlans.filter(p=>p.type==='dynamic'&&!p.source).length,0);assert.equal(referralPlans(db).length,1);
-  checks.push('enabled referral rewards replace the package multi-level dynamic income; static income stays');
+  assert.equal(db.incomePlans.filter(p=>p.type==='static').length,0);assert.equal(db.incomePlans.filter(p=>p.type==='dynamic'&&!p.source).length,0);assert.equal(referralPlans(db).length,1);
+  checks.push('enabled referral rewards replace package dynamic income; unapproved buyers receive no static income');
 
   db=fixture();income.manage(db,'PUT','referral',referral({scope:'vip'}),'tester');
   const kit=order(db,{productId:'kit'}),vip1=order(db,{productId:'vip',total:6980}),vip2=order(db,{productId:'vip',total:13800});

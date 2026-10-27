@@ -1,4 +1,4 @@
-// 分红池（静态收益）验收：奖池按办卡金额占比分给全部办卡会员，按北京时间周期结算。
+// 分红池（静态收益）验收：奖池按办卡金额占比分给已认证股东，按北京时间周期结算。
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),net=require('node:net');
 const {spawn}=require('node:child_process'),{once}=require('node:events'),income=require('../server/income.cjs'),seed=require('../server/seed.cjs');
 const checks=[],DAY=86400000,HOUR=3600000;
@@ -6,8 +6,8 @@ const D0='2026-10-18',start=Date.parse(D0+'T00:00:00+08:00');
 const pool=(o={})=>({revision:0,enabled:true,source:'fixed',baseAmount:100000,percent:5,cycle:'daily',activityDays:0,startDate:D0,...o});
 const vip={id:'vip',name:'黄金VIP套餐',packagePlans:[{}]};
 let n=0;
-function fixture(){return {config:{},products:[vip,{id:'kit',name:'焕颜套'}],users:[],orders:[],earnings:[],incomeRules:[],incomePlans:[],poolSettlements:[]}}
-function member(db,id,total,paidAt,extra={}){if(!db.users.some(u=>u.id===id))db.users.push({id});const o={id:'o'+(n++),userId:id,productId:extra.productId||'vip',product:extra.productId==='kit'?{name:'焕颜套'}:{...vip},total,status:'ready',paymentStatus:'paid',paidAt:new Date(paidAt).toISOString(),...extra};db.orders.push(o);return o}
+function fixture(){return {config:{shareholderProgram:{plans:[{id:'pool-proof',name:'验收方案',units:1,enabled:true}]}},products:[vip,{id:'kit',name:'焕颜套'}],users:[],orders:[],earnings:[],incomeRules:[],incomePlans:[],poolSettlements:[]}}
+function member(db,id,total,paidAt,extra={}){if(!db.users.some(u=>u.id===id))db.users.push({id});const o={id:'o'+(n++),userId:id,productId:extra.productId||'vip',product:extra.productId==='kit'?{name:'焕颜套'}:{...vip},total,status:'ready',paymentStatus:'paid',paidAt:new Date(paidAt).toISOString(),...extra};db.orders.push(o);if(o.product?.packagePlans?.length&&o.paymentStatus==='paid'&&o.refundStatus!=='refunded'&&!['pending','cancelled','aftersale'].includes(o.status)){const user=db.users.find(u=>u.id===id);user.shareholder={approved:true,planId:'pool-proof',orderId:o.id,approvedAt:o.paidAt}}return o}
 function enable(db,o={},now=start+HOUR){return income.managePool(db,pool({revision:income.poolRule(db).revision,...o}),'tester',now)}
 const cents=(db,uid)=>db.earnings.filter(e=>e.userId===uid&&e.source==='pool').reduce((s,e)=>s+e.amountCents,0);
 
@@ -38,7 +38,7 @@ const cents=(db,uid)=>db.earnings.filter(e=>e.userId===uid&&e.source==='pool').r
   member(db,'late',6980,start+DAY+HOUR);
   income.settle(db,start+DAY+HOUR);
   assert.deepEqual(db.earnings.filter(e=>e.source==='pool').map(e=>[e.userId,e.amountCents]),[['ok',500000]]);
-  checks.push('only paid, unrefunded VIP card holders active before the period end share the pool');
+  checks.push('only certified shareholders with paid, unrefunded VIP cards active before the period end share the pool');
 
   const end=start+DAY;
   db=fixture();enable(db);member(db,'a',6980,start+HOUR);const late=member(db,'b',6980,start+HOUR);
@@ -65,7 +65,7 @@ const cents=(db,uid)=>db.earnings.filter(e=>e.userId===uid&&e.source==='pool').r
   assert.equal(db.poolSettlements[0].poolCents,247800);assert.equal(db.poolSettlements[0].distributedCents,247800);
   assert.deepEqual(db.earnings.filter(e=>e.source==='pool').map(e=>e.userId).sort(),['u-a','u-b','u-c']);
   income.settle(db,start+2*DAY+HOUR);assert.equal(db.poolSettlements[1].poolCents,0);
-  checks.push('revenue mode (default): 5% of all paid orders that day, including ordinary products (49,560 → 2,478.00), shared only by card holders; unpaid and refunded orders excluded');
+  checks.push('revenue mode (default): 5% of all paid orders that day, including ordinary products (49,560 → 2,478.00), shared only by certified shareholders; unpaid and refunded orders excluded');
 
   db=fixture();enable(db,{source:'revenue',activityDays:3});
   member(db,'old',99999,start-2*DAY);
@@ -131,8 +131,9 @@ async function stop(){if(child&&child.exitCode===null){const done=once(child,'ex
   // 把服务时钟拨到明天凌晨 1 点 / 2 点（北京时间），恰好跨过一个结算日
   const tomorrow=Date.parse(today+'T00:00:00+08:00')+DAY;
   const plan=card.packagePlans[0],selection={planId:plan.id,groups:Object.fromEntries(plan.groups.map(g=>[g.id,g.services.slice(0,g.pick).map(s=>({serviceId:s.id,...(s.options?.length?{option:s.options[0]}:{})}))]))};
+  await admin('shareholders/program','POST',(await admin('shareholders')).rule);
   const buyers=[];
-  for(const i of [1,2,3]){const u=await req('/auth/wechat','POST',{code:'pool-'+i+'-'+Date.now()});const o=await req('/orders','POST',{productId:card.id,quantity:1,spec:'single',storeId:store,packageSelection:selection},u.token);await admin('orders/'+o.id,'POST',{action:'confirmPayment',note:'分红池验收'});buyers.push({u,o})}
+  for(const i of [1,2,3]){const u=await req('/auth/wechat','POST',{code:'pool-'+i+'-'+Date.now()});const o=await req('/orders','POST',{productId:card.id,quantity:1,spec:'single',storeId:store,packageSelection:selection},u.token);await admin('orders/'+o.id,'POST',{action:'confirmPayment',note:'分红池验收'});assert.equal((await admin('incomeRules')).poolOverview.members,i-1);const user=(await admin('users')).find(row=>row.id===u.user.id);await admin('shareholders/member','POST',{userId:u.user.id,approved:true,planId:'package-'+card.price,orderId:o.id,revision:user.memberRevision||0});buyers.push({u,o})}
   const live=(await admin('incomeRules')).poolOverview,sales=buyers.reduce((n,b)=>n+b.o.total,0);assert.equal(live.members,3);
   assert.equal(live.currentIncome,sales);assert.deepEqual([live.activity.round,live.activity.day],[1,1]);assert.equal(live.estimatedPool,Math.round(sales*5)/100);
   assert.equal((await req('/earnings-summary','GET',undefined,buyers[0].u.token)).static,0);
@@ -142,6 +143,6 @@ async function stop(){if(child&&child.exitCode===null){const done=once(child,'ex
   const each=(await req('/earnings-summary','GET',undefined,buyers[0].u.token)).static;assert.ok(Math.abs(each-sales*0.05/3)<0.02,String(each));
   assert.match((await req('/earnings','GET',undefined,buyers[0].u.token)).map(e=>e.name).join(),/分红池/);
   await stop();await startServer(tomorrow+2*HOUR-Date.now());assert.equal((await admin('incomeRules')).poolOverview.settlements.length,1);
-  checks.push(`API (default revenue mode): the day's revenue ${sales} gives a live estimate of ${Math.round(sales*5)/100}; after midnight the running service settles it once across 3 card holders, and a restart does not repeat it`);
+  checks.push(`API (default revenue mode): the day's revenue ${sales} gives a live estimate of ${Math.round(sales*5)/100}; after midnight the running service settles it once across 3 certified shareholders, and a restart does not repeat it`);
   console.log(JSON.stringify({ok:true,checks},null,2));
 })().catch(e=>{console.error(e.stack);process.exitCode=1}).finally(async()=>{await stop();fs.rmSync(dir,{recursive:true,force:true})});

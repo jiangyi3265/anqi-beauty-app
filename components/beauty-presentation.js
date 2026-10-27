@@ -6,6 +6,7 @@ import ProductVisual from './ProductVisual.vue'
 import EmptyState from './EmptyState.vue'
 import {requestServiceSubscriptions} from '../common/subscriptions.js'
 import {requireInviteBinding} from '../common/invite.js'
+import {dailyPoolForToday} from '../common/daily-pool.js'
 
 const pageTitles = {
   mall: '商城', discover: '发现', product: '项目详情', stores: '选择门店',
@@ -44,19 +45,20 @@ export default function decorateScreen(base) {
         if(this.membershipCard?.preview)return '测试会员 · 仅展示，不含消费权益'
         return this.me.memberCode?'会员编号 '+this.me.memberCode:'欢迎来到'+this.brandName
       },
-      memberFeatureTitle(){return this.shareholderMode?'今日公共积分池':this.me.id?(this.membershipCard?.name||'VIP服务套餐'):'VIP服务套餐'},
+      publicDailyPool(){return dailyPoolForToday(this.dailyPool, this.clockNow)},
+      currentIncomeSummary(){return {...this.incomeSummary,dailyPool:dailyPoolForToday(this.incomeSummary.dailyPool,this.clockNow)}},
+      memberFeatureTitle(){return this.me.id?(this.membershipCard?.name||'VIP服务套餐'):'VIP服务套餐'},
       memberFeatureNote(){
-        if(this.shareholderMode)return '当日分配总额 · '+(this.dailyPool.date||'今日')
         if(this.membershipCard?.preview)return '测试会员 · 仅展示，不含消费权益'
         return this.me.vipLevel?'已开通 · 按项目预约核销':'按需选择 · 分次预约'
       },
       ui(){return { ...UI_ASSETS,room:this.config.homeImage||UI_ASSETS.room,silk:this.config.themeImage||UI_ASSETS.silk,portrait:this.config.mallBanner||UI_ASSETS.portrait,booking:this.config.bookingImage||this.config.homeImage||UI_ASSETS.room,alliance:this.config.allianceImage||this.config.themeImage||UI_ASSETS.silk }},
-      memberEntries(){return this.allMemberEntries.filter(entry=>entry.page!=='share'||(this.config.marketingEnabled!==false&&(!this.shareholderMode||this.shareAllowed)))},
+      memberEntries(){return this.allMemberEntries.filter(entry=>entry.page!=='share'||(this.config.marketingEnabled!==false&&this.shareAllowed))},
       quickEntries(){return [
         {label:this.config.shortcutTrialLabel||'体验卡',page:'gifts',query:'?type=trial',icon:'ticket'},
         {label:this.config.shortcutVipLabel||'贵宾卡',page:'gifts',query:'?type=vip',icon:'crown'},
         {label:this.config.shortcutShareLabel||'邀请好友',page:'share',icon:'share'}
-      ].filter(entry=>entry.page!=='share'||(this.config.marketingEnabled!==false&&(!this.shareholderMode||this.shareAllowed)))},
+      ].filter(entry=>entry.page!=='share'||(this.config.marketingEnabled!==false&&this.shareAllowed))},
       selectedVisualProduct(){const image=this.selectedSku?.image;return image?{...this.product,image,visualMode:'image'}:this.product},
       homeBanners(){return this.homeModules.filter(m=>m.type==='banner')},
       homeContentModules(){return this.homeModules.filter(m=>m.type!=='banner')},
@@ -121,11 +123,17 @@ export default function decorateScreen(base) {
       const orderTab = ['', 'pending', 'ready', 'shipping', 'completed', 'aftersale'].indexOf(this.query.tab || '')
       if (this.page === 'orders' && orderTab >= 0) this.tab = orderTab
       base.mounted.call(this)
-      this.uiClockTimer = setInterval(() => { this.clockNow = Date.now() }, 30000)
+      this.updateClock()
     },
-    beforeUnmount() { clearInterval(this.uiClockTimer) },
+    beforeUnmount() { clearTimeout(this.uiClockTimer) },
     methods: {
       ...base.methods,
+      updateClock() {
+        this.clockNow = Date.now()
+        const midnight = Date.parse(this.today + 'T00:00:00+08:00') + 86400000
+        // 保留预约时间刷新频率，跨零点时立即切换当天积分池。
+        this.uiClockTimer = setTimeout(() => this.updateClock(), Math.min(30000, midnight - this.clockNow))
+      },
       price: formatPrice,
       open(page,query=''){if(page==='share'&&this.config.marketingEnabled===false)return toast('门店暂未开放邀请分享');return go(page,query)},
       async createOrder(){
@@ -172,7 +180,7 @@ export default function decorateScreen(base) {
             this.loading = false
           }
         }
-        if(!this.error){uni.setNavigationBarTitle({title:this.isTab?this.brandName:this.title});if(this.nativeDevice){const pagePublic=['home','mall','discover','product','stores','activities','alliances'].includes(this.page);if(this.config.marketingEnabled!==false&&pagePublic&&(!this.shareholderMode||this.shareAllowed))uni.showShareMenu({menus:['shareAppMessage','shareTimeline'],fail(){}});else uni.hideShareMenu({menus:['shareAppMessage','shareTimeline'],fail(){}})}}
+        if(!this.error){uni.setNavigationBarTitle({title:this.isTab?this.brandName:this.title});if(this.nativeDevice){const pagePublic=['home','mall','discover','product','stores','activities','alliances'].includes(this.page);if(this.config.marketingEnabled!==false&&pagePublic&&this.shareAllowed)uni.showShareMenu({menus:['shareAppMessage','shareTimeline'],fail(){}});else uni.hideShareMenu({menus:['shareAppMessage','shareTimeline'],fail(){}})}}
         if (this.page === 'mall' && !this.mallCategories.some(row => row.id === this.mallCategory)) this.mallCategory = this.mallCategories[0]?.id || 'all'
         if (!selected) {
           const saved = uni.getStorageSync('xiurong-preferred-store')
@@ -213,10 +221,19 @@ export default function decorateScreen(base) {
       giftStatusClass(product) { return product.useStatus === 'completed' ? 'muted' : product.useStatus === 'booked' ? 'rose' : 'amber' },
       bookedCount(order, item) { return (this.rows || []).filter(row => row.orderId === order?.id && row.entitlementId === item.id && row.status === 'booked').length },
       orderSpec(order) { return order.package?.planName || order.product?.selectedSku?.name || (order.spec === 'course' ? '1疗程' : order.product?.kind === 'goods' ? '1件' : '单次 · 1次') },
+      orderPaymentLabel(order) {
+        if (order.paymentMode === 'wechat') return '微信支付'
+        if (order.paymentMode === 'mock') return '模拟支付'
+        if (order.paymentMode === 'offline') return '现金支付（门店收银）'
+        if (order.paymentMode === 'demo') return '历史记录'
+        if (order.status === 'pending') return '微信支付 / 现金支付'
+        if (order.paymentChoice === 'wechat') return '微信支付'
+        return this.onlinePay && order.paymentChoice !== 'offline' ? '微信支付' : '现金支付（门店收银）'
+      },
       statusText(status) { return {pending:'待付款',ready:'待使用',shipping:'待收货 / 取货',completed:'已完成',cancelled:'已取消',aftersale:'退款已登记'}[status] || status },
       orderStatus(order) { return order.status === 'ready' ? order.product?.kind === 'goods' ? '待发货 / 取货' : '待预约' : this.statusText(order.status) },
       orderNote(order) {
-        if (order.status === 'pending') return this.onlinePay ? '请在下单2小时内完成微信支付，超时订单自动取消。' : '请在下单2小时内联系门店确认付款。'
+        if (order.status === 'pending') return '可选择微信支付或现金支付；现金支付需门店确认收款后生效。未付款订单2小时后自动取消。'
         if (order.status === 'cancelled') return '订单已取消，如需服务可重新下单。'
         if (order.status === 'aftersale') return order.wechatRefund ? {SUCCESS:'退款已原路退回微信支付账户。',PROCESSING:'退款已提交微信支付，一般1-3个工作日原路到账。',ABNORMAL:'退款到账异常，请联系门店处理。',CLOSED:'退款已关闭，请联系门店处理。'}[order.wechatRefund.status] || '退款已提交微信支付。' : '具体到账情况请联系门店核实。'
         if (order.status === 'shipping') return '商品履约进度请查看物流信息或联系门店。'

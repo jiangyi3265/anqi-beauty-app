@@ -1,5 +1,4 @@
-// 超级VIP会员验收：只有超级VIP会员（持有未退款的 VIP 套餐卡）才有专属二维码、才能推荐人；
-// 被推荐来的顾客不是超级VIP，没有码、没有分钱机制；他自己办卡成为超级VIP后，用他的码进来的人才算他的；推荐奖励只有一层。
+// 股东邀请验收：购买 VIP 套餐并由后台认证后才有专属二维码；被邀请的普通顾客不会自动成为股东。
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),net=require('node:net');
 const {spawn}=require('node:child_process'),{once}=require('node:events'),seed=require('../server/seed.cjs');
 const {makeSuperVip}=require('./test-super-vip.cjs');
@@ -24,7 +23,7 @@ const userRow=async id=>(await admin('users')).find(u=>u.id===id);
   assert.deepEqual(locked,{locked:true,memberCode:codeOf(jia)});
   const stranger=await login('stranger',codeOf(jia));const sRow=await userRow(stranger.user.id);
   assert.equal(sRow.inviterId,undefined);assert.equal(sRow.invited,false);assert.equal((await req('/shares','GET',undefined,jia.token)).length,0);
-  checks.push('甲没办卡（不是超级VIP）：没有二维码，只显示会员编号；别人用甲的编号注册不算甲推荐的，也不给贵宾卡资格');
+  checks.push('甲未购卡也未认证：没有二维码，会员编号不能用于邀请');
 
   await makeSuperVip(admin,jia.user.id,'jia');
   const share=await req('/share-code','GET',undefined,jia.token);assert.ok(share.image&&!share.locked);
@@ -36,7 +35,7 @@ const userRow=async id=>(await admin('users')).find(u=>u.id===id);
   const yi=await login('yi',codeOf(jia));const yRow=await userRow(yi.user.id);
   assert.equal(yRow.inviterId,jia.user.id);assert.equal(yRow.invited,true);
   const o1=await pay(yi);assert.equal(await dyn(jia),Math.round(o1.total*50)/100);
-  checks.push('甲成为超级VIP后有了二维码；乙用甲的码注册算甲推荐的，乙首单 '+o1.total+' 元，甲拿 '+Math.round(o1.total*50)/100+' 元');
+  checks.push('甲购卡并认证股东后有二维码；乙首单 '+o1.total+' 元，甲拿 '+Math.round(o1.total*50)/100+' 元');
   const oldBuyer=await login('old-buyer');await pay(oldBuyer);
   const beforeOldBuyerBind=await dyn(jia);
   assert.equal((await req('/invite/bind','POST',{invite:codeOf(jia)},oldBuyer.token)).status,'bound');
@@ -55,7 +54,7 @@ const userRow=async id=>(await admin('users')).find(u=>u.id===id);
   assert.equal((await req('/share-code','GET',undefined,yi.token)).locked,true);
   const bing=await login('bing',codeOf(yi));assert.equal((await userRow(bing.user.id)).inviterId,undefined);
   const before=await dyn(jia);await pay(bing);assert.equal(await dyn(jia),before);assert.equal(await dyn(yi),0);
-  checks.push('乙不是超级VIP：没有二维码；丙用乙的编号注册不算任何人推荐的，丙消费甲、乙都不拿钱（没有一层一层）');
+  checks.push('乙未认证股东：没有二维码；丙用乙的编号注册不绑定，甲乙均无间接奖励');
 
   const ding=await login('ding',codeOf(jia));const o2=await pay(ding);
   assert.equal(await dyn(jia),Math.round((before+o2.total*0.5)*100)/100);assert.equal(await dyn(yi),0);
@@ -71,7 +70,7 @@ const userRow=async id=>(await admin('users')).find(u=>u.id===id);
   const wu=await login('wu',codeOf(yi));assert.equal((await userRow(wu.user.id)).inviterId,yi.user.id);
   const jiaBefore=await dyn(jia);const o3=await pay(wu);
   assert.equal(await dyn(yi),Math.round(o3.total*50)/100);assert.equal(await dyn(jia),jiaBefore);
-  checks.push('乙自己办卡成为超级VIP后有了自己的码；戊用乙的码进来，戊首单乙拿 50%，甲不拿');
+  checks.push('乙购卡并认证股东后有自己的码；戊首单乙拿 50%，甲不拿');
 
   const yiOrder=await pay(yi);assert.equal(await dyn(jia),Math.round((jiaBefore+yiOrder.total*0.1)*100)/100);
   checks.push('乙自己以后的消费，仍按后续 10% 奖励给推荐他的甲');
@@ -81,17 +80,17 @@ const userRow=async id=>(await admin('users')).find(u=>u.id===id);
 
   const arch=(name,phone,extra={})=>({requestId:'sv-'+crypto.randomUUID(),name,phone,note:'测试线下档案',invited:false,disabled:false,incomeAccess:{static:true,dynamic:true},inviterId:'',...extra});
   const listed=(await admin('legacyMembers')).members;assert.equal(listed.find(m=>m.id===jia.user.id).superVip,true);assert.equal(listed.find(m=>m.id===bing.user.id).superVip,false);
-  assert.match((await admin('legacyMembers','POST',arch('线下档案一','13900000101',{inviterId:bing.user.id}),400)).error,/超级VIP/);
+  assert.match((await admin('legacyMembers','POST',arch('线下档案一','13900000101',{inviterId:bing.user.id}),400)).error,/认证股东/);
   const off=await admin('legacyMembers','POST',arch('线下档案二','13900000102',{inviterId:jia.user.id}));assert.equal(off.inviterId,jia.user.id);
-  checks.push('后台建线下档案：直接推荐人只能选超级VIP会员（选丙被拒绝，选甲可以）');
+  checks.push('后台建线下档案：直接推荐人只能选认证股东（选丙被拒绝，选甲可以）');
 
   const card=(await admin('orders')).find(o=>o.userId===jia.user.id&&o.product?.packagePlans?.length);await admin('orders/'+card.id,'POST',{action:'refund',note:'退卡',refundConfirmed:true,refundAmount:card.total,refundedAt:new Date().toISOString(),refundMethod:'隔离测试',refundReference:'test-'+card.id});
   assert.equal((await req('/share-code','GET',undefined,jia.token)).locked,true);
   const late=await login('late',codeOf(jia));assert.equal((await userRow(late.user.id)).inviterId,undefined);
-  checks.push('甲退卡后不再是超级VIP：二维码收回，之后用甲的码注册不算甲推荐的');
+  checks.push('甲退卡后失去股东分享资格：二维码收回，之后用甲的码注册不算甲推荐的');
   const kept=await admin('legacyMembers/'+off.id,'PUT',{...arch('线下档案二改名','13900000102',{inviterId:jia.user.id}),revision:off.memberRevision});assert.equal(kept.inviterId,jia.user.id);
-  assert.match((await admin('legacyMembers/'+off.id,'PUT',{...arch('线下档案二','13900000102',{inviterId:bing.user.id}),revision:kept.memberRevision},400)).error,/超级VIP/);
-  checks.push('以前登记的推荐人退卡后，改档案其他内容照常保存；但不能新改成非超级VIP的推荐人');
+  assert.match((await admin('legacyMembers/'+off.id,'PUT',{...arch('线下档案二','13900000102',{inviterId:bing.user.id}),revision:kept.memberRevision},400)).error,/认证股东/);
+  checks.push('以前登记的推荐人退卡后，改档案其他内容照常保存；但不能新改成非认证股东');
 
   await stop();await start();assert.equal((await req('/share-code','GET',undefined,yi.token)).locked,undefined);
   checks.push('重启后规则不变');

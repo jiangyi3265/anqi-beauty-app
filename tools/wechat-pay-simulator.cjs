@@ -64,6 +64,7 @@ function createSimulator({ mchid, appid, apiV3Key, merchantPublicKey, merchantSe
       return reply(res, 200, { data: [{ serial_no: certSerial, effective_time: new Date().toISOString(), expire_time: new Date(Date.now() + 86400000).toISOString(), encrypt_certificate: encrypt(certPem, 'certificate') }] });
     }
     if (req.method === 'POST' && url.pathname === '/v3/pay/transactions/jsapi') {
+      if (sim.beforePrepayReply) await sim.beforePrepayReply(b.out_trade_no);
       if (b.appid !== appid || b.mchid !== mchid || !b.out_trade_no || !b.description || !b.notify_url || !b.time_expire || !b.payer?.openid || !Number.isInteger(b.amount?.total) || b.amount.total < 1 || b.amount.currency !== 'CNY') return reply(res, 400, { code: 'PARAM_ERROR', message: '参数错误' });
       const old = sim.orders.get(b.out_trade_no);
       if (old) {

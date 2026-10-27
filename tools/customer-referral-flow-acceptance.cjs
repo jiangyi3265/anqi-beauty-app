@@ -1,4 +1,4 @@
-// 隔离模拟：6980 VIP 分享专属码，新顾客扫码登录并购买 3980 服务。
+// 隔离模拟：6980 VIP 经后台认证股东后分享专属码，新顾客扫码登录并购买 3980 服务。
 const assert = require('node:assert/strict')
 const crypto = require('node:crypto')
 const fs = require('node:fs')
@@ -84,7 +84,12 @@ async function pay(member, product, storeId, packageSelection) {
     productId: product.id, quantity: 1, spec: 'single', storeId,
     ...(packageSelection ? { packageSelection } : {})
   }, member.token)
-  await admin(`orders/${order.id}`, 'POST', { action: 'confirmPayment', note: '隔离模拟收款' })
+  const unchecked = await fetch(base + `/admin/orders/${order.id}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-anqi-internal': secret },
+    body: JSON.stringify({ action: 'confirmPayment' })
+  })
+  assert.equal(unchecked.status, 400, '未经后台明确确认不能把订单标记为已付款')
+  await admin(`orders/${order.id}`, 'POST', { action: 'confirmPayment', confirmed: true })
   return (await admin('orders')).find(row => row.id === order.id)
 }
 
@@ -116,10 +121,19 @@ async function main() {
   }
   const vipOrder = await pay(zhang, vip, storeId, packageSelection)
   assert.equal(vipOrder.total, 6980)
+  assert.equal((await request('/share-code', 'GET', undefined, zhang.token)).locked, true, '购卡本身不产生分享资格')
+  await admin('shareholders/program', 'POST', {
+    enabled: false, revision: 0, settleTime: '23:00',
+    plans: (await admin('shareholders')).rule.plans
+  })
+  await admin('shareholders/member', 'POST', {
+    userId: zhang.user.id, approved: true, planId: 'package-6980',
+    orderId: vipOrder.id, revision: 0
+  })
   const incomeRules = await admin('incomeRules')
   await admin('incomeRules/referral', 'PUT', { ...incomeRules.referral, enabled: true, requireCard: true })
   const share = await request('/share-code', 'GET', undefined, zhang.token)
-  assert.ok(share.image && share.code, '已购 VIP 应取得专属码')
+  assert.ok(share.image && share.code, '已付款且认证股东应取得专属码')
   assert.equal(share.code, zhang.user.id.slice(0, 8).toUpperCase())
   assert.equal(share.mode, 'web', '隔离环境不调用微信生成正式小程序码')
 

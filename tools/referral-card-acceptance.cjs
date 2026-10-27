@@ -1,4 +1,4 @@
-// 推荐人须办卡验收：开启后，被推荐人付款那一刻推荐人本人已持有 VIP 套餐卡才计推荐奖励；办卡前的订单不补发。
+// 旧订单快照的办卡规则验收，以及新订单的股东资格与退卡分支验收。
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),net=require('node:net');
 const {makeSuperVip}=require('./test-super-vip.cjs');
 const {spawn}=require('node:child_process'),{once}=require('node:events'),income=require('../server/income.cjs'),seed=require('../server/seed.cjs');
@@ -8,7 +8,10 @@ const fixture=()=>({config:{},products:[{id:'vip',name:'黄金VIP套餐',package
 let seq=0;
 function order(db,{userId='friend',productId='kit',total=1000,at,extra={}}){
   const o={id:'o'+(seq++),userId,productId,product:JSON.parse(JSON.stringify(db.products.find(p=>p.id===productId))),total,status:'ready',paymentStatus:'paid',paidAt:new Date(at).toISOString(),createdAt:new Date(at).toISOString(),...extra};
-  income.snapshot(db,o);db.orders.push(o);income.activate(db,o);return o;
+  income.snapshot(db,o);
+  // 此组单元场景验证旧订单快照的办卡规则；新订单改用认证股东规则。
+  if(o.incomeSnapshot?.referral)o.incomeSnapshot.referral.shareholderRequired=false;
+  db.orders.push(o);income.activate(db,o);return o;
 }
 const plans=db=>db.incomePlans.filter(p=>p.source==='referral').map(p=>[p.orderId,p.tier,p.amountCents]);
 
@@ -80,8 +83,8 @@ async function stop(){if(child&&child.exitCode===null){const done=once(child,'ex
   const o1=await req('/orders','POST',{productId:kit.id,quantity:1,spec:'single',storeId:store},friend.token);
   await admin('orders/'+o1.id,'POST',{action:'confirmPayment',note:'推荐人已退卡'});
   assert.equal((await req('/earnings-summary','GET',undefined,me.token)).dynamic,0);
-  assert.equal((await admin('orders')).find(o=>o.id===o1.id).referralNote,'inviterNoCard');
-  checks.push('API：推荐人（超级VIP）退卡后，好友付款 '+o1.total+' 元，推荐人收益 0，订单记录“推荐人未办卡”');
+  assert.equal((await admin('orders')).find(o=>o.id===o1.id).referralNote,'notShareholder');
+  checks.push('API：认证股东退卡后失去分享资格，好友付款 '+o1.total+' 元，推荐人收益 0');
   await makeSuperVip(admin,me.user.id,'card2');
   assert.ok((await req('/me','GET',undefined,me.token)).vipLevel);
   const o2=await req('/orders','POST',{productId:kit.id,quantity:1,spec:'single',storeId:store},friend.token);

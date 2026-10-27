@@ -1,12 +1,14 @@
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),net=require('node:net');
-const {spawn}=require('node:child_process'),{once}=require('node:events'),seed=require('../server/seed.cjs'),legacy=require('../server/legacy-members.cjs'),income=require('../server/income.cjs');
+const {spawn}=require('node:child_process'),{once}=require('node:events'),seed=require('../server/seed.cjs'),legacy=require('../server/legacy-members.cjs'),income=require('../server/income.cjs'),shareholders=require('../server/shareholders.cjs');
 const checks=[],id=()=>crypto.randomUUID(),DAY=86400000;
 const profile=(name,phone,extra={})=>({requestId:id(),name,phone,note:'隔离测试线下约定',invited:true,disabled:false,incomeAccess:{static:true,dynamic:true},inviterId:'',...extra});
 const selection=p=>{const plan=p.packagePlans[0];return {planId:plan.id,groups:Object.fromEntries(plan.groups.map(g=>[g.id,g.services.slice(0,g.pick).map(s=>({serviceId:s.id,...(s.options?.length?{option:s.options[0]}:{})}))]))}};
-const grant=(db,u,extra={})=>({action:'grant',revision:u.memberRevision||0,confirmed:true,requestId:id(),productId:db.products.find(p=>p.packagePlans?.length).id,storeId:db.stores[0].id,total:6980,paidAt:new Date(Date.now()-1000).toISOString(),reference:id(),note:'隔离收款凭证',incomeTreatment:'historical',packageSelection:selection(db.products.find(p=>p.packagePlans?.length)),used:{},...extra});
+const grant=(db,u,extra={})=>({action:'grant',revision:u.memberRevision||0,confirmed:true,requestId:id(),productId:db.products.find(p=>p.packagePlans?.length).id,storeId:db.stores[0].id,total:6980,paidAt:new Date().toISOString(),reference:id(),note:'隔离收款凭证',incomeTreatment:'historical',packageSelection:selection(db.products.find(p=>p.packagePlans?.length)),used:{},...extra});
 {
  const db=seed();require('../server/vip-packages.cjs').seedCatalogue(db);income.init(db);const a=profile('线下甲','13900000001');const u=legacy.manage(db,'POST',null,a,'tester');assert.equal(legacy.manage(db,'POST',null,a,'tester').id,u.id);assert.throws(()=>legacy.manage(db,'POST',null,profile('重复','13900000001'),'tester'),/手机号/);assert.throws(()=>legacy.manage(db,'POST',null,{...a,name:'变更'},'tester'),/不一致/);
- assert.throws(()=>legacy.manage(db,'POST',null,profile('线下乙','13900000002',{inviterId:u.id}),'tester'),/超级VIP/);legacy.manage(db,'POST',u.id,grant(db,u),'tester');
+ assert.throws(()=>legacy.manage(db,'POST',null,profile('线下乙','13900000002',{inviterId:u.id}),'tester'),/认证股东/);const proof=legacy.manage(db,'POST',u.id,grant(db,u),'tester');
+ shareholders.configure(db,shareholders.rule(db),'tester');
+ shareholders.certify(db,{userId:u.id,approved:true,planId:'package-6980',orderId:proof.id,revision:u.memberRevision||0},'tester');
  const v=legacy.manage(db,'POST',null,profile('线下乙','13900000002',{inviterId:u.id}),'tester');assert.throws(()=>legacy.manage(db,'PUT',u.id,{...a,revision:u.memberRevision,inviterId:v.id},'tester'),/循环/);assert.throws(()=>legacy.manage(db,'PUT',u.id,{...a,revision:0},'tester'),/更新/);checks.push('offline profiles: unique phone, exact replay, stale edit and inviter cycle rejection');
  db.config.referralReward={enabled:true,firstPercent:50,laterPercent:10};const input=grant(db,v,{paidAt:new Date(Date.now()-2000).toISOString()});const stock=db.products.find(p=>p.id===input.productId).stock;const o=legacy.manage(db,'POST',v.id,input,'tester');assert.equal(o.paymentStatus,'paid');assert.equal(db.earnings.length,0);assert.equal(db.products.find(p=>p.id===input.productId).stock,stock);assert.equal(legacy.manage(db,'POST',v.id,input,'tester').id,o.id);assert.throws(()=>legacy.manage(db,'POST',u.id,input,'tester'),/不一致/);assert.throws(()=>legacy.manage(db,'POST',v.id,{...input,requestId:id()},'tester'),/已录入/);
  const newOrder=legacy.manage(db,'POST',v.id,grant(db,v,{incomeTreatment:'apply'}),'tester');assert.equal(newOrder.inventoryReserved,true);assert.equal(newOrder.referrerIdAtOrder,u.id);assert.equal(o.referrerIdAtOrder,undefined);assert.equal(db.products.find(p=>p.id===input.productId).stock,stock-1);assert.equal(income.summary(db,u.id).dynamic,698);assert.equal(db.incomePlans[0].tier,'later');assert.throws(()=>legacy.manage(db,'POST',v.id,grant(db,v,{incomeTreatment:'apply',paidAt:new Date(Date.now()-2*DAY).toISOString()}),'tester'),/历史订单/);checks.push('historical grants do not reserve stock or replay rewards; today’s sale reserves one package and earns once');
@@ -33,8 +35,9 @@ const grant=(db,u,extra={})=>({action:'grant',revision:u.memberRevision||0,confi
  vip.complete(order,{entitlementId:sid});assert.equal(order.status,'completed');assert.equal(vip.remaining(order,sid,[]),0);assert.throws(()=>vip.complete(order,{entitlementId:sid}),/不可核销/);
  checks.push('imported used counts and reservation limits, last service completes package, double redemption rejected');
  const start=Date.parse('2026-10-22T00:00:00+08:00');
- const pooled={config:{poolReward:{enabled:true,source:'revenue',percent:5,cycle:'daily',activityDays:3,startDate:'2026-10-22'}},users:[{id:'a'},{id:'b',incomeAccess:{static:false,dynamic:true}}],orders:[],products:[p],incomeRules:[],incomePlans:[],earnings:[],poolSettlements:[]};
+ const pooled={config:{poolReward:{enabled:true,source:'revenue',percent:5,cycle:'daily',activityDays:3,startDate:'2026-10-22'},shareholderProgram:{plans:[{id:'offline',name:'线下方案',units:1,enabled:true}]}},users:[{id:'a'},{id:'b',incomeAccess:{static:false,dynamic:true}}],orders:[],products:[p],incomeRules:[],incomePlans:[],earnings:[],poolSettlements:[]};
  for(const uid of ['a','b'])pooled.orders.push({id:uid,userId:uid,productId:p.id,product:p,total:100,status:'ready',paymentStatus:'paid',paidAt:new Date(start+3600000).toISOString()});
+ pooled.users[0].shareholder={approved:true,planId:'offline',orderId:'a',approvedAt:new Date(start+3600000).toISOString()};
  income.settle(pooled,start+DAY+1);assert.deepEqual(pooled.earnings.map(e=>[e.userId,e.amountCents]),[['a',1000]]);
  checks.push('static eligibility excludes ineligible recipient while paid revenue remains in the original 5% pool');
 }
@@ -55,7 +58,7 @@ async function stop(){if(child&&child.exitCode===null){const done=once(child,'ex
  const registered=await req('/auth/wechat','POST',{code:'registered-direct-management'});
  const beforeMembers=(await adm('users')).length;
  // created 的卡刚退掉，已不是超级VIP，不能再被选为推荐人
- assert.match((await req('/admin/legacyMembers/'+registered.user.id,'PUT',{...profile('直接办理会员','13900000006'),revision:0,inviterId:created.id},null,400,true)).error,/超级VIP/);
+ assert.match((await req('/admin/legacyMembers/'+registered.user.id,'PUT',{...profile('直接办理会员','13900000006'),revision:0,inviterId:created.id},null,400,true)).error,/认证股东/);
  await adm('legacyMembers/'+registered.user.id,'PUT',{...profile('直接办理会员','13900000006'),revision:0});
  const current=(await adm('users')).find(u=>u.id===registered.user.id);
  const directOrder=await adm('legacyMembers/'+current.id,'POST',grant(db,current));

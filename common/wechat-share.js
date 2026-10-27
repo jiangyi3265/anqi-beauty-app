@@ -22,8 +22,8 @@ function shareDetails(screen) {
   const name=screen?.config?.name||'秀荣科技美肤'
   const storeTitle=name+' · 美容用品商城'
   const page = screen?.page || 'home'
-  // 分享链接与专属码使用同一资格；未切换股东规则时兼容原 VIP 规则。
-  const allowed = screen?.shareAllowed ?? screen?.me?.canShare ?? (!screen?.config?.shareholderProgram?.activatedAt && !!screen?.me?.vipLevel)
+  // 分享链接与专属码使用同一股东认证资格。
+  const allowed = screen?.shareAllowed ?? (screen?.me?.canShare === true)
   const invite = screen?.config?.marketingEnabled === false || !allowed ? '' : screen?.inviteCode || ''
   if (page === 'share') return { title: '邀请你来'+name, page: 'home', query: { invite } }
   if (!isPublic(page, screen)) return { title: storeTitle, page: 'home', query: { invite } }

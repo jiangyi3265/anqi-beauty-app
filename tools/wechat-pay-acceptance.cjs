@@ -71,10 +71,9 @@ const verifyPaySign = p => crypto.createVerify('RSA-SHA256').update(`${p.appId}\
   checks.push('业务服务和小程序启动参数均显示已开通微信支付');
 
   const offlineChoice = await order(service, buyer.token, { paymentChoice: 'offline' });
-  await pay(offlineChoice, buyer.token, 400);
   assert.equal(sim.count('POST', '/v3/pay/transactions/jsapi'), 0);
   await req('/orders/' + offlineChoice.id + '/cancel', 'POST', {}, buyer.token);
-  checks.push('即使在线支付已启用，明确选择门店收银的订单也不会创建微信预支付单；仍可正常取消');
+  checks.push('选择现金下单不会自动创建微信预支付单；未付款仍可正常取消');
 
   // 1. 下单 → 预支付 → 调起参数
   const stockBefore = (await req('/bootstrap')).products.find(p => p.id === service.id).stock;
@@ -174,6 +173,43 @@ const verifyPaySign = p => crypto.createVerify('RSA-SHA256').update(`${p.appId}\
   await admin('orders/' + o5.id, 'POST', { action: 'refund', note: '线下退现金', refundConfirmed:true, refundAmount:o5.total, refundedAt:new Date().toISOString(), refundMethod:'隔离测试', refundReference:'test-'+o5.id });
   assert.equal(sim.count('POST', '/v3/refund/domestic/refunds'), refundsBefore);
   checks.push('套餐已有核销记录时在调用微信前拒绝退款；线下收款的订单退款不经过微信');
+
+  // 现金是新增的付款选项，未付款订单仍可以主动选择微信支付。
+  const switchingBuyer = await login('wxpay-switch');
+  const cashToWechat = await order(service, switchingBuyer.token, { paymentChoice: 'offline' });
+  await pay(cashToWechat, switchingBuyer.token);
+  await sim.pay(cashToWechat.number);
+  assert.equal((await req('/orders/' + cashToWechat.id, 'GET', undefined, switchingBuyer.token)).paymentMode, 'wechat');
+  await admin('orders/' + cashToWechat.id, 'POST', { action: 'confirmPayment', confirmed: true }, 400);
+  const switchedRefund = await admin('orders/' + cashToWechat.id, 'POST', { action: 'refund', note: '原选择现金、实际微信付款' });
+  assert.equal(switchedRefund.wechatRefund.status, 'PROCESSING');
+  assert.equal(sim.calls.filter(c => c.path === '/v3/refund/domestic/refunds').at(-1).body.transaction_id, sim.orders.get(cashToWechat.number).transaction_id);
+  checks.push('现金订单可主动微信付款；按实际微信渠道入账和退款，不能再被门店重复确认');
+
+  // 延迟预支付响应，重现顾客点微信付款的同时门店确认现金的竞争。
+  const concurrentOrder = await order(service, switchingBuyer.token, { paymentChoice: 'offline' });
+  let releasePrepay, prepayReached;
+  const prepayGate = new Promise(resolve => { releasePrepay = resolve; });
+  const reached = new Promise(resolve => { prepayReached = resolve; });
+  sim.beforePrepayReply = async number => {
+    if (number === concurrentOrder.number) { prepayReached(); await prepayGate; }
+  };
+  const pendingPay = pay(concurrentOrder, switchingBuyer.token);
+  await reached;
+  let cashCompleted = false;
+  const pendingCash = admin('orders/' + concurrentOrder.id, 'POST', { action: 'confirmPayment', confirmed: true }).then(result => { cashCompleted = true; return result; });
+  try {
+    await new Promise(resolve => setTimeout(resolve, 150));
+    assert.equal(cashCompleted, false, '预支付未保存前不能抢先确认现金');
+  } finally { releasePrepay(); }
+  await Promise.all([pendingPay, pendingCash]);
+  sim.beforePrepayReply = null;
+  assert.equal(sim.orders.get(concurrentOrder.number).state, 'CLOSED');
+  assert.ok((await sim.pay(concurrentOrder.number)).closed);
+  assert.equal((await req('/orders/' + concurrentOrder.id, 'GET', undefined, switchingBuyer.token)).paymentMode, 'offline');
+  assert.equal((await pay(concurrentOrder, switchingBuyer.token)).paid, true);
+  await admin('orders/' + concurrentOrder.id, 'POST', { action: 'confirmPayment', confirmed: true }, 400);
+  checks.push('并发微信预支付与现金确认按同一订单串行处理；关单后现金入账，微信不能再扣款，重复付款不会创建新预支付');
 
   // 9. 超时对账：未付款的关闭并取消、库存恢复；已付款但回调丢失的自动入账；重启后数据保留
   const o8 = await order(service, buyer.token); await pay(o8, buyer.token);

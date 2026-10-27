@@ -8,8 +8,6 @@ const text = (v, label, max=200) => { if(typeof v!=='string'||!v.trim()||v.trim(
 const active = (db,id) => {const u=db.users.find(u=>u.id===id&&!u.mergedInto);if(!u)fail('会员不存在',404);return u;};
 const fingerprint = b => crypto.createHash('sha256').update(JSON.stringify(b)).digest('hex');
 function requestId(b) { const key=text(b.requestId,'操作编号',80);if(!/^[a-zA-Z0-9-]+$/.test(key))fail('操作编号无效');return key; }
-// 与 index.cjs 的 vipLevel 同一口径：持有已付款、未退款的 VIP 套餐卡
-const superVip = (db,id) => db.orders.some(o=>o.userId===id&&o.product?.packagePlans?.length&&o.paymentStatus==='paid'&&o.refundStatus!=='refunded'&&!['cancelled','pending','aftersale'].includes(o.status));
 function access(v) {if(!v||typeof v.static!=='boolean'||typeof v.dynamic!=='boolean')fail('请设置静态、动态收益资格');return {static:v.static,dynamic:v.dynamic};}
 function profile(db,b,self) {
  const name=text(b.name,'姓名',40),phone=text(b.phone,'手机号',11),note=text(b.note,'操作说明',500);
@@ -19,8 +17,11 @@ function profile(db,b,self) {
  const inviterId=b.inviterId||'';if(typeof inviterId!=='string')fail('推荐人无效');
  const seen=new Set(self?[self]:[]);let next=inviterId;
  while(next){if(seen.has(next))fail('推荐关系不能形成循环');seen.add(next);const parent=active(db,next);if(parent.disabled)fail('推荐人已停用');next=parent.inviterId;}
- // 只有超级VIP会员才能当推荐人；以前已经登记的推荐人不变时照常保存
- if(inviterId&&inviterId!==(self?active(db,self).inviterId||'':'')&&!((shareholders.enabled(db)||!!shareholders.rule(db).activatedAt)?shareholders.eligible(db,active(db,inviterId))&&active(db,inviterId).incomeAccess?.dynamic!==false:superVip(db,inviterId)))fail((shareholders.enabled(db)||!!shareholders.rule(db).activatedAt)?'直接推荐人须为已认证且有分享资格的股东':'直接推荐人必须是超级VIP会员（持有VIP套餐卡）');
+ // 既有推荐关系保持不变；新指定的推荐人须与小程序分享资格一致。
+ if(inviterId&&inviterId!==(self?active(db,self).inviterId||'':'')){
+  const inviter=active(db,inviterId);
+  if(!shareholders.eligible(db,inviter)||inviter.incomeAccess?.dynamic===false)fail('直接推荐人须为后台认证股东且有分享资格');
+ }
  return {name,phone,adminNote:note,invited:b.invited,disabled:b.disabled,inviterId,incomeAccess:access(b.incomeAccess)};
 }
 function audit(db,actor,action,target,details) {db.audit||=[];db.audit.unshift({id:crypto.randomUUID(),actor,resource:'legacyMembers',method:action,target,details,createdAt:new Date().toISOString()});}

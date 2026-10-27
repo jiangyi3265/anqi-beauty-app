@@ -83,6 +83,7 @@ uni-tabbar,.uni-tabbar-bottom{display:none!important}
 @keyframes xr-pulse{50%{opacity:.5}}
 .xr-screen .xr-dock{position:fixed;z-index:35;left:50%;bottom:0;transform:translateX(-50%);width:100%;max-width:480px;display:flex;align-items:center;gap:18rpx;padding:20rpx 30rpx calc(20rpx + env(safe-area-inset-bottom,0px));background:#fffdfb;border-top:1px solid #eee3dc}
 .xr-screen .xr-dock>.xr-button{flex:1;min-width:0}
+.xr-screen .xr-payment-dock>.xr-button{padding-left:8rpx;padding-right:8rpx;font-size:26rpx}
 .xr-screen .xr-dock-summary{flex:1;white-space:nowrap;font-size:27rpx}
 .xr-screen .xr-dock-summary>text{font-size:39rpx;margin-left:8rpx}
 .xr-screen .xr-dock-summary+.xr-button{flex:0 0 52%}
@@ -306,6 +307,7 @@ uni-tabbar,.uni-tabbar-bottom{display:none!important}
 .xr-screen .xr-member-feature>view{flex:1;min-width:0}
 .xr-screen .xr-member-feature .xr-caption{margin-top:8rpx}
 .xr-screen .xr-member-feature .xr-stat-value{flex-shrink:0;font-size:44rpx}
+.xr-screen .xr-daily-pool{flex-direction:column;align-items:flex-start;gap:10rpx}
 .xr-screen .xr-pool-entry{margin-top:22rpx;background:#f5e1d9;border-radius:20rpx}
 .xr-screen .xr-pool-entry>button{display:flex;align-items:center;gap:17rpx;width:100%;padding:20rpx 24rpx;text-align:left}
 .xr-screen .xr-pool-entry>button>view{flex:1;min-width:0;font-size:27rpx}
